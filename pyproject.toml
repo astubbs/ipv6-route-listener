@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "route-listener"
+version = "0.1.0"
+description = "ICMPv6 RA listener for Thread route monitoring"
+authors = ["Your Name"]
+readme = "README.md"
+packages = [{include = "route_listener"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+scapy = "^2.5.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+route-listen = "route_listener.main:main"
