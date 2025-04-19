@@ -19,7 +19,7 @@ BANNER = """
 """
 
 # Track seen routes to avoid duplicate processing
-seen_routes = set()
+seen_routes = {}  # Changed from set to dict to track the last router for each prefix
 
 def log(message, prefix="", level="info"):
     """Log a message with a timestamp and level."""
@@ -36,14 +36,6 @@ def configure_route(prefix, router, iface):
     if not prefix or not router:
         return False
     
-    # Create a unique key for this route
-    route_key = f"{prefix}|{router}"
-    
-    # Skip if we've already processed this route
-    if route_key in seen_routes:
-        log(f"⏭️  Route already configured: {prefix} via {router}", "  ")
-        return True
-    
     # Check if the prefix is a ULA prefix (starts with 'fd')
     if not prefix.startswith("fd"):
         log(f"⏭️  Ignoring non-ULA prefix: {prefix} via {router}", "  ", "ignored")
@@ -51,7 +43,18 @@ def configure_route(prefix, router, iface):
         log(f"   ℹ️  ULA prefixes are used for local network communication and are not routable on the public internet", "  ", "ignored")
         return False
     
-    log(f"🔧 Configuring new route: {prefix} via {router}", "  ")
+    # Check if we've already processed this exact route
+    route_key = f"{prefix}|{router}"
+    if route_key in seen_routes:
+        log(f"⏭️  Route already configured: {prefix} via {router}", "  ")
+        return True
+    
+    # Check if we've seen this prefix before with a different router
+    if prefix in seen_routes:
+        previous_router = seen_routes[prefix]
+        log(f"🔄 Updating route: {prefix} via {router} (previous: {previous_router})", "  ")
+    else:
+        log(f"🔧 Configuring new route: {prefix} via {router}", "  ")
     
     try:
         # Call the thread-route.sh script with the prefix and router
@@ -71,8 +74,9 @@ def configure_route(prefix, router, iface):
         
         log(f"✅ Route configuration output:\n{result.stdout}", "  ")
         
-        # Add to seen routes
-        seen_routes.add(route_key)
+        # Update seen routes - store both the full route key and just the prefix
+        seen_routes[route_key] = router
+        seen_routes[prefix] = router
         return True
     except subprocess.CalledProcessError as e:
         log(f"❌ Error configuring route: {e}", "  ")

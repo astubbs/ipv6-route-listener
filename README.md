@@ -73,6 +73,7 @@ If you're not using Docker:
    - Listens for ICMPv6 Router Advertisements on the specified network interface
    - Extracts ULA prefixes and routes from the advertisements
    - Each route is processed only once (subsequent advertisements for the same route are ignored)
+   - If multiple routes are advertised for the same subnet, the last route wins
 
 2. **Route Filtering:**
    - Only ULA prefixes (starting with 'fd') are configured
@@ -84,6 +85,7 @@ If you're not using Docker:
    - When a new ULA route is detected, an external script (`thread-route.sh`) is called
    - The script uses the `ip` command to add the route to the kernel
    - Existing routes with the same prefix are removed before adding the new one
+   - If multiple routes are advertised for the same subnet, the last route wins
 
 4. **Interface Configuration:**
    - By default, the script listens on the `eth0` interface
@@ -106,9 +108,17 @@ If you're not using Docker:
 [2023-04-19 10:15:40]   📡 Prefix: 2001:db8::/64
 [2023-04-19 10:15:40]   ⏭️  Ignoring non-ULA prefix: 2001:db8::/64 via fe80::1234:5678:9abc:def0
 [2023-04-19 10:15:40]   ℹ️  Only ULA prefixes (starting with 'fd') are configured for Matter/Thread device communication
+[2023-04-19 10:15:40]   ℹ️  ULA prefixes are used for local network communication and are not routable on the public internet
 [2023-04-19 10:15:45] 🔔 Router Advertisement from fe80::1234:5678:9abc:def0
 [2023-04-19 10:15:45]   📡 Prefix: fd00:1234:5678::/64
 [2023-04-19 10:15:45]   ⏭️  Route already configured: fd00:1234:5678::/64 via fe80::1234:5678:9abc:def0
+[2023-04-19 10:15:50] 🔔 Router Advertisement from fe80::5678:9abc:def0:1234
+[2023-04-19 10:15:50]   📡 Prefix: fd00:1234:5678::/64
+[2023-04-19 10:15:50]   🔄 Updating route: fd00:1234:5678::/64 via fe80::5678:9abc:def0:1234 (previous: fe80::1234:5678:9abc:def0)
+[2023-04-19 10:15:50]   ✅ Route configuration output:
+[2023-04-19 10:15:50]   🔍 Configuring route: fd00:1234:5678::/64 via fe80::5678:9abc:def0:1234 on interface eth0
+[2023-04-19 10:15:50]   ➕ Adding route to fd00:1234:5678::/64 via fe80::5678:9abc:def0:1234 on eth0
+[2023-04-19 10:15:50]   ✅ Added
 ```
 
 ## 📜 History
