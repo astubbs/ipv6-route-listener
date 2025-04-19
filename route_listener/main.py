@@ -8,11 +8,11 @@ import logging
 from scapy.all import get_if_list, conf
 from .logger import Logger
 from .route_configurator import RouteConfigurator
-from .packet_handler import PacketHandler
+from .scapy_handler import ScapyPacketHandler
 
 # Version and build information
 VERSION = "0.1.0"
-BUILD_NUMBER = "1"
+BUILD_NUMBER = "4"
 
 def main():
     """Main entry point for the application."""
@@ -21,6 +21,7 @@ def main():
     parser.add_argument("-i", "--interface", default="eth0", help="Network interface to monitor")
     parser.add_argument("--log-ignored", action="store_true", help="Log ignored routes")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--enable-rs", action="store_true", help="Enable Router Solicitation")
     args = parser.parse_args()
     
     # Create logger
@@ -48,12 +49,13 @@ def main():
     logger.info(f"  Log ignored routes: {'Yes' if args.log_ignored else 'No'}")
     logger.info(f"  Debug logging: {'Yes' if args.debug else 'No'}")
     logger.info(f"  Available interfaces: {', '.join(get_if_list())}")
+    logger.info(f"  Router Solicitation: {'Enabled' if args.enable_rs else 'Disabled'}")
     
     # Initialize route configurator
     configurator = RouteConfigurator(logger, interface=args.interface)
     
     # Initialize packet handler
-    handler = PacketHandler(args.interface, configurator, logger)
+    handler = ScapyPacketHandler(args.interface, configurator, logger, enable_rs=args.enable_rs)
     
     # Start listening for packets
     handler.start()

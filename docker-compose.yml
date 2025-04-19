@@ -5,11 +5,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: route-listener-container
-    network_mode: host
+    container_name: ipv6-route-listener
+    network_mode: host  # Required to access host network interfaces directly
     cap_add:
-      - NET_ADMIN
-      - NET_RAW
+      - NET_ADMIN  # Required to modify IPv6 routes using 'ip route' commands
+      - NET_RAW    # Required for raw socket access to capture ICMPv6 packets
     volumes:
-      - .:/app
-    command: python -u -m route_listener.main -i eth0 --debug 
+      - .:/app     # Mount source code for development and hot-reloading
+    environment:
+      - PYTHONUNBUFFERED=1  # Ensure Python output is not buffered for real-time logs
+    command: /bin/sh bin/start.sh --debug 

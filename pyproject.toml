@@ -17,3 +17,39 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 route-listen = "route_listener.main:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
+ignore = []
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[tool.radon]
+min = "C"
+exclude = "tests,venv,.venv,__pycache__"
+
+[tool.pylint.messages_control]
+disable = ["C0111", "C0103", "C0303", "W0511", "R0903", "R0913", "R0914"]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.basic]
+good-names = ["i", "j", "k", "ex", "Run", "_,pk,id"]

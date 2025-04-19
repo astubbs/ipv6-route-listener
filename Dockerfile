@@ -1,12 +1,21 @@
 FROM python:3.11-slim
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    tcpdump iproute2 libcap2-bin \
-    gcc python3-dev \
+# Install required packages:
+#   iproute2     - Required for 'ip' command to manage IPv6 routes
+#   ndisc6       - Provides rdisc6 tool for sending Router Solicitations
+#   tcpdump      - Useful for debugging network traffic
+#   libpcap-dev  - Required by Scapy for packet capture
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    iproute2 \
+    ndisc6 \
+    tcpdump \
+    libpcap-dev \
+    gcc \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set workdir
+# Set up working directory
 WORKDIR /app
 
 # Copy poetry files first for better caching
@@ -17,20 +26,23 @@ RUN pip install --no-cache-dir poetry \
     && poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-root
 
+# Install code quality tools
+RUN pip install --no-cache-dir \
+    ruff \
+    mypy \
+    radon \
+    pylint
+
 # Copy the rest of the application
 COPY . .
 
 # Install the project itself
 RUN poetry install --no-interaction
 
-# Make the configure-ipv6-route.sh script executable
-RUN chmod +x bin/configure-ipv6-route.sh
+# Make scripts executable
+RUN chmod +x bin/*
 
 # Enable low-level packet capture (needed for scapy)
 RUN setcap cap_net_raw,cap_net_admin=eip $(readlink -f $(which python3))
 
-# Set Python to run in unbuffered mode
-ENV PYTHONUNBUFFERED=1
-
-# Run the script
-CMD ["python", "-u", "-m", "route_listener.main"]
+CMD ["python", "-m", "route_listener.main"]

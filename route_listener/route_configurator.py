@@ -42,16 +42,13 @@ class RouteConfigurator:
         self.interface = interface
         self.seen_routes = set()
         
-        # Initialize router discovery
-        discovery = RouterDiscovery(interface, logger)
-        discovery.discover_routers()
-        
-    def configure(self, prefix: str, prefix_len: int) -> None:
+    def configure(self, prefix: str, prefix_len: int, router: str = None) -> None:
         """Configure a route for the given prefix.
         
         Args:
             prefix: IPv6 prefix to configure
             prefix_len: Prefix length
+            router: Router address (optional)
         """
         # Skip if we've seen this route before
         route_key = self.get_route_key(prefix)
@@ -64,8 +61,27 @@ class RouteConfigurator:
         # Run the shell script to configure the route
         script_path = os.path.join(os.path.dirname(__file__), "..", "bin", "configure-ipv6-route.sh")
         try:
+            # Set environment variables for the script
+            env = os.environ.copy()
+            env["PREFIX"] = prefix
+            env["PREFIX_LEN"] = str(prefix_len)
+            env["IFACE"] = self.interface
+            if router:
+                env["ROUTER"] = router
+                
+            # Log the parameters before running the script
+            self.logger.info(f"🔍 Running script with parameters:")
+            self.logger.info(f"   PREFIX: {prefix}")
+            self.logger.info(f"   PREFIX_LEN: {prefix_len}")
+            self.logger.info(f"   IFACE: {self.interface}")
+            if router:
+                self.logger.info(f"   ROUTER: {router}")
+            else:
+                self.logger.warning("⚠️  No router address provided")
+                
             result = subprocess.run(
-                [script_path, prefix, str(prefix_len), self.interface],
+                [script_path],
+                env=env,
                 capture_output=True,
                 text=True,
                 check=True
