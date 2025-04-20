@@ -88,7 +88,7 @@ class ScapyPacketHandler(BasePacketHandler):
                 
             self.logger.debug(f"🔍 Processing Router Advertisement options: {ra.payload}")
             
-            # Extract prefix information from ICMPv6NDOptPrefixInfo options
+            # Extract prefix and route information from options
             for opt in ra.payload:
                 self.logger.debug(f"🔍 Processing option: {type(opt).__name__}")
                 
@@ -96,17 +96,35 @@ class ScapyPacketHandler(BasePacketHandler):
                     prefix_str = str(opt.prefix)
                     prefix_len = opt.prefixlen
                     self.logger.debug(f"🔍 Found prefix: {prefix_str}/{prefix_len}")
-                    self._process_ula_prefix(prefix_str, prefix_len, packet[IPv6].src)
+                    if prefix_str.startswith("fd"):
+                        self.logger.debug(f"🔍 Found ULA prefix: {prefix_str}/{prefix_len}")
+                        self._process_ula_prefix(prefix_str, prefix_len, packet[IPv6].src)
+                    else:
+                        self.logger.debug(f"⏭️  Ignoring non-ULA prefix: {prefix_str}/{prefix_len}")
                 elif isinstance(opt, ICMPv6NDOptRouteInfo):
                     prefix_str = str(opt.prefix)
                     prefix_len = opt.prefixlen
                     self.logger.debug(f"🔍 Found route: {prefix_str}/{prefix_len}")
-                    self._process_ula_prefix(prefix_str, prefix_len, packet[IPv6].src)
+                    if prefix_str.startswith("fd"):
+                        self.logger.debug(f"🔍 Found ULA route: {prefix_str}/{prefix_len}")
+                        self._process_ula_route(prefix_str, prefix_len, packet[IPv6].src)
+                    else:
+                        self.logger.debug(f"⏭️  Ignoring non-ULA route: {prefix_str}/{prefix_len}")
                 else:
                     self.logger.debug(f"⏭️  Ignoring option type: {type(opt).__name__}")
                     
         except Exception as e:
             self._log_error("Error processing Router Advertisement", e)
+            
+    def _process_ula_route(self, prefix: str, prefix_len: int, router: str = None):
+        """Process a ULA route (distinct from a prefix)."""
+        if prefix.startswith("fd"):
+            # Ensure the prefix doesn't already include a length
+            base_prefix = prefix.split('/')[0]
+            self.logger.info(f"🔍 Found ULA route: {base_prefix}/{prefix_len}")
+            self.route_configurator.configure(base_prefix, prefix_len, router)
+        else:
+            self.logger.debug(f"⏭️  Ignoring non-ULA route: {prefix}/{prefix_len}")
             
     def stop(self):
         """Stop the packet handler."""

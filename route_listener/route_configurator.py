@@ -51,7 +51,7 @@ class RouteConfigurator:
             router: Router address (optional)
         """
         # Skip if we've seen this route before
-        route_key = self.get_route_key(prefix)
+        route_key = self.get_route_key(prefix, router)
         if route_key in self.seen_routes:
             self.logger.info(f"⏭️  Route already configured: {prefix}/{prefix_len}")
             return
@@ -91,13 +91,18 @@ class RouteConfigurator:
         except subprocess.CalledProcessError as e:
             self.logger.error(f"❌ Failed to configure route: {e.stderr}")
             
-    def get_route_key(self, prefix: str) -> str:
+    def get_route_key(self, prefix: str, router: str = None) -> str:
         """Generate a unique key for a route.
         
         Args:
             prefix: IPv6 prefix
+            router: Router address (optional)
             
         Returns:
             A unique string key for the route
         """
-        return f"{prefix}_{self.interface}" 
+        # Remove any existing prefix length notation
+        base_prefix = prefix.split('/')[0]
+        if router:
+            return f"{base_prefix}|{router}|{self.interface}"
+        return f"{base_prefix}|{self.interface}" 

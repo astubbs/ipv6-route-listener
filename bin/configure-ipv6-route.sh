@@ -91,9 +91,9 @@ for LENGTH in 64 48 32 16; do
     ip -6 route del "$BASE_PREFIX/$LENGTH" via "$ROUTER" dev "$IFACE" 2>/dev/null || true
 done
 
-# Add the new route with /64 prefix length (standard for ULA)
-echo "➕ Adding route to $BASE_PREFIX/64 via $ROUTER on $IFACE"
-if ip -6 route add "$BASE_PREFIX/64" via "$ROUTER" dev "$IFACE"; then
+# Add the new route with the specified prefix length
+echo "➕ Adding route to $BASE_PREFIX/$PREFIX_LEN via $ROUTER on $IFACE"
+if ip -6 route add "$BASE_PREFIX/$PREFIX_LEN" via "$ROUTER" dev "$IFACE"; then
     echo "✅ Route added successfully"
 else
     echo "❌ Failed to add route"
