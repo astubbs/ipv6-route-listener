@@ -33,7 +33,9 @@ SAMPLE_RA_DATA = [
 @pytest.fixture
 def mock_logger():
     """Create a mock logger for testing."""
-    return MagicMock(spec=Logger)
+    logger = MagicMock(spec=Logger)
+    logger.verbose = True
+    return logger
 
 @pytest.fixture
 def route_configurator(mock_logger):
@@ -159,4 +161,79 @@ def test_route_configuration_failure(route_configurator, mock_logger):
         route_configurator.configure(prefix, prefix_len, router)
 
         # Verify error was logged
-        mock_logger.error.assert_called_with("❌ Failed to configure route: Failed to add route: Invalid prefix") 
+        mock_logger.error.assert_called_with("❌ Failed to configure route: Failed to add route: Invalid prefix")
+
+def test_off_link_route_configuration(route_configurator, mock_logger):
+    """Test configuration of off-link routes with error handling."""
+    with patch('subprocess.run') as mock_run:
+        # Configure mock to simulate failure
+        mock_run.side_effect = subprocess.CalledProcessError(
+            1, 
+            "configure-ipv6-route.sh",
+            stderr="RTNETLINK answers: File exists",
+            output=""
+        )
+
+        # Attempt to configure an off-link route
+        prefix = "fd2b:7eb9:619c::"
+        prefix_len = 64
+        router = "fe80::85e:1f44:c26f:229"
+
+        # Configure the route
+        route_configurator.configure(prefix, prefix_len, router, is_prefix=False)
+
+        # Verify error was logged
+        mock_logger.error.assert_called_with("❌ Failed to configure route: RTNETLINK answers: File exists")
+        if mock_logger.verbose:
+            mock_logger.debug.assert_any_call("Command output: ")
+            mock_logger.debug.assert_any_call("Command error: RTNETLINK answers: File exists")
+            mock_logger.debug.assert_any_call("Return code: 1")
+
+def test_off_link_route_processing(route_configurator, mock_logger):
+    """Test that off-link routes are processed correctly."""
+    with patch('subprocess.run') as mock_run:
+        # Configure mock to return success
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="Route added successfully\n",
+            stderr=""
+        )
+
+        # Test data with both on-link prefix and off-link route
+        prefix = "fd82:cd32:5ad7:ff4a::"
+        prefix_len = 64
+        router = "fe80::85e:1f44:c26f:229"
+        off_link_route = "fd2b:7eb9:619c::"
+
+        # Configure both the on-link prefix and off-link route
+        route_configurator.configure(prefix, prefix_len, router, is_prefix=True)
+        route_configurator.configure(off_link_route, prefix_len, router, is_prefix=False)
+
+        # Verify both routes were configured
+        assert mock_run.call_count == 2
+
+        # Get all calls
+        calls = mock_run.call_args_list
+
+        # Verify on-link prefix configuration
+        prefix_call = calls[0]
+        prefix_env = prefix_call[1]['env']
+        assert prefix_env['PREFIX'] == prefix
+        assert prefix_env['PREFIX_LEN'] == str(prefix_len)
+        assert prefix_env['IFACE'] == 'eth0'
+        assert prefix_env['ROUTER'] == router
+        assert prefix_env['IS_PREFIX'] == "1"
+
+        # Verify off-link route configuration
+        route_call = calls[1]
+        route_env = route_call[1]['env']
+        assert route_env['PREFIX'] == off_link_route
+        assert route_env['PREFIX_LEN'] == str(prefix_len)
+        assert route_env['IFACE'] == 'eth0'
+        assert route_env['ROUTER'] == router
+        assert route_env['IS_PREFIX'] == "0"
+
+        # Verify logging
+        mock_logger.info.assert_any_call(f"🔧 Configuring prefix for {prefix}/{prefix_len}")
+        mock_logger.info.assert_any_call(f"🔧 Configuring route for {off_link_route}/{prefix_len}")
+        mock_logger.info.assert_any_call("✅ Route configured successfully: Route added successfully\n") 

@@ -65,7 +65,7 @@ docker run --rm \
   --cap-add=NET_BROADCAST \
   --cap-add=SYS_ADMIN \
   -it \
-  $IMAGE_NAME python -u -m route_listener.main -i "$INTERFACE" $DEBUG $VERBOSE
+  $IMAGE_NAME /bin/sh bin/start.sh -i "$INTERFACE" $DEBUG $VERBOSE
 
 # If we get here, the container has exited
 echo "📋 Container has exited." 

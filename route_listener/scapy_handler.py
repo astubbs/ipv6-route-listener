@@ -10,7 +10,7 @@ import binascii
 class ScapyPacketHandler(BasePacketHandler):
     """Scapy-based implementation of ICMPv6 Router Advertisement handler."""
     
-    def __init__(self, interface, route_configurator, logger, enable_rs=False):
+    def __init__(self, interface, route_configurator, logger, enable_rs=False, enable_parsing=True):
         """Initialize the packet handler.
         
         Args:
@@ -18,11 +18,13 @@ class ScapyPacketHandler(BasePacketHandler):
             route_configurator: The route configurator instance
             logger: The logger instance
             enable_rs: Whether to enable Router Solicitation
+            enable_parsing: Whether to enable packet parsing (for testing)
         """
         super().__init__(interface, route_configurator, logger)
         self.route_processor = RouteInfoProcessor(route_configurator, logger)
         self.running = True
         self.enable_rs = enable_rs
+        self.enable_parsing = enable_parsing
 
     def start(self):
         """Start listening for Router Advertisements."""
@@ -41,10 +43,24 @@ class ScapyPacketHandler(BasePacketHandler):
         
         # Start packet capture with a more specific filter
         self.logger.debug(f"🔍 Starting packet capture on interface '{self.interface}' with filter 'icmp6 and ip6[40] = 134'")
-        sniff(iface=self.interface, 
-              prn=self._handle_packet, 
-              filter="icmp6 and ip6[40] = 134",  # Only Router Advertisements
-              store=0)
+        try:
+            # Use a more specific filter for Router Advertisements
+            sniff(iface=self.interface, 
+                  prn=self._handle_packet, 
+                  filter="icmp6 and ip6[40] = 134",  # Filter for ICMPv6 Router Advertisements
+                  store=0)
+        except Exception as e:
+            self._log_error("Error starting packet capture", e)
+            # Try to recover by falling back to a simpler filter
+            try:
+                self.logger.warning("Falling back to basic ICMPv6 filter...")
+                sniff(iface=self.interface, 
+                      prn=self._handle_packet, 
+                      filter="icmp6",  # Basic ICMPv6 filter
+                      store=0)
+            except Exception as e2:
+                self._log_error("Error with fallback packet capture", e2)
+                raise
         
     def _send_router_solicitations(self):
         """Periodically send Router Solicitation messages."""
@@ -62,6 +78,7 @@ class ScapyPacketHandler(BasePacketHandler):
         
     def _handle_packet(self, packet):
         """Handle received packets."""
+        self.logger.debug("Got packet, inspecting...")
         try:
             # Ensure we have an IPv6 packet
             if not IPv6 in packet:
@@ -94,6 +111,11 @@ class ScapyPacketHandler(BasePacketHandler):
     def _process_router_advertisement(self, packet):
         """Process a Router Advertisement packet."""
         try:
+            # Skip processing if parsing is disabled
+            if not self.enable_parsing:
+                self.logger.debug("⏭️  Packet parsing disabled, skipping processing")
+                return
+
             # Get the Router Advertisement layer
             ra = packet[ICMPv6ND_RA]
             
@@ -104,52 +126,23 @@ class ScapyPacketHandler(BasePacketHandler):
             
             # Extract route information from options
             route_infos = []
-            for opt in ra.payload:
-                if self.logger.verbose:
-                    self.logger.debug(f"🔍 Processing option: {type(opt).__name__}")
-                    self.logger.debug(f"🔍 Option data: {opt.show()}")
-                
-                if isinstance(opt, ICMPv6NDOptPrefixInfo):
-                    try:
-                        prefix_str = str(opt.prefix)
-                        prefix_len = opt.prefixlen
-                        if self.logger.verbose:
-                            self.logger.debug(f"🔍 Found prefix: {prefix_str}/{prefix_len}")
-                        route_infos.append(RouteInfo(
-                            prefix=prefix_str,
-                            prefix_len=prefix_len,
-                            router=packet[IPv6].src,
-                            is_prefix=True,
-                            valid_time=opt.validlifetime,
-                            pref_time=opt.preferredlifetime
-                        ))
-                    except AttributeError as e:
-                        if self.logger.verbose:
-                            self.logger.error(f"❌ Error processing prefix option: Missing required attribute - {str(e)}")
-                            self.logger.debug(f"Option data: {opt}")
-                elif isinstance(opt, ICMPv6NDOptRouteInfo):
-                    try:
-                        prefix_str = str(opt.prefix)
-                        prefix_len = opt.plen  # Route Info uses 'plen' instead of 'prefixlen'
-                        if self.logger.verbose:
-                            self.logger.debug(f"🔍 Found route: {prefix_str}/{prefix_len}")
-                        route_infos.append(RouteInfo(
-                            prefix=prefix_str,
-                            prefix_len=prefix_len,
-                            router=packet[IPv6].src,
-                            is_prefix=False,
-                            lifetime=opt.rtlifetime
-                        ))
-                    except AttributeError as e:
-                        if self.logger.verbose:
-                            self.logger.error(f"❌ Error processing route option: {str(e)}")
-                            self.logger.debug(f"Option data: {opt}")
-                else:
-                    if self.logger.verbose:
-                        self.logger.debug(f"⏭️  Ignoring option type: {type(opt).__name__}")
+            
+            # Get all options from the RA packet
+            options = ra.payload if hasattr(ra, 'payload') else []
+            if isinstance(options, list):
+                # If options is a list, process each option
+                for opt in options:
+                    self._process_option(opt, packet[IPv6].src, route_infos)
+            else:
+                # If options is a single option or chain, process it
+                opt = options
+                while opt and not isinstance(opt, bytes):
+                    self._process_option(opt, packet[IPv6].src, route_infos)
+                    opt = opt.payload if hasattr(opt, 'payload') else None
             
             # Process all route information
             if route_infos:
+                self.logger.info(f"🔧 Processing {len(route_infos)} route(s)/prefix(es) from RA")
                 self.route_processor.process_route_infos(route_infos)
             elif self.logger.verbose:
                 self.logger.debug("⏭️  No route information found in packet")
@@ -157,6 +150,53 @@ class ScapyPacketHandler(BasePacketHandler):
         except Exception as e:
             if self.logger.verbose:
                 self._log_error("Error processing Router Advertisement", e)
+                
+    def _process_option(self, opt, src_addr, route_infos):
+        """Process a single RA option."""
+        if self.logger.verbose:
+            self.logger.debug(f"🔍 Processing option: {type(opt).__name__}")
+            self.logger.debug(f"🔍 Option data: {opt.show()}")
+        
+        if isinstance(opt, ICMPv6NDOptPrefixInfo):
+            try:
+                prefix_str = str(opt.prefix)
+                prefix_len = opt.prefixlen
+                if self.logger.verbose:
+                    self.logger.debug(f"🔍 Found on-link prefix: {prefix_str}/{prefix_len}")
+                    self.logger.info(f"📡 On-link prefix: {prefix_str}/{prefix_len} (directly connected)")
+                route_infos.append(RouteInfo(
+                    prefix=prefix_str,
+                    prefix_len=prefix_len,
+                    router=src_addr,
+                    is_prefix=True,
+                    valid_time=opt.validlifetime,
+                    pref_time=opt.preferredlifetime
+                ))
+            except AttributeError as e:
+                if self.logger.verbose:
+                    self.logger.error(f"❌ Error processing prefix option: Missing required attribute - {str(e)}")
+                    self.logger.debug(f"Option data: {opt}")
+        elif isinstance(opt, ICMPv6NDOptRouteInfo):
+            try:
+                prefix_str = str(opt.prefix)
+                prefix_len = opt.plen  # Route Info uses 'plen' instead of 'prefixlen'
+                if self.logger.verbose:
+                    self.logger.debug(f"🔍 Found off-link route: {prefix_str}/{prefix_len}")
+                    self.logger.info(f"🛣️  Off-link route: {prefix_str}/{prefix_len} (via {src_addr})")
+                route_infos.append(RouteInfo(
+                    prefix=prefix_str,
+                    prefix_len=prefix_len,
+                    router=src_addr,
+                    is_prefix=False,
+                    lifetime=opt.rtlifetime
+                ))
+            except AttributeError as e:
+                if self.logger.verbose:
+                    self.logger.error(f"❌ Error processing route option: {str(e)}")
+                    self.logger.debug(f"Option data: {opt}")
+        else:
+            if self.logger.verbose:
+                self.logger.debug(f"⏭️  Ignoring option type: {type(opt).__name__}")
             
     def stop(self):
         """Stop the packet handler."""

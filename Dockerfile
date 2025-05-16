@@ -45,12 +45,6 @@ RUN chmod +x bin/*
 # Enable low-level packet capture (needed for scapy)
 RUN setcap cap_net_raw,cap_net_admin=eip $(readlink -f $(which python3))
 
-# Create a non-root user for running tests
-RUN useradd -m -s /bin/bash testuser
-RUN chown -R testuser:testuser /app
-
-# Switch to testuser for running tests
-USER testuser
-
 # Default command (can be overridden)
-CMD ["python", "-m", "route_listener.main", "-i", "ovs_eth0"]
+ENV INTERFACE=ovs_eth0
+CMD ["/bin/sh", "bin/start.sh", "-i", "${INTERFACE}"]

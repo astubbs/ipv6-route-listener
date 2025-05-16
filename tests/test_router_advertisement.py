@@ -171,4 +171,26 @@ def test_process_ula_prefix_only(route_processor, mock_route_configurator):
         int(ra_data["prefix"].split('/')[1]),  # prefix_len
         ra_data["src_ip"],  # router
         is_prefix=True  # is_prefix
+    )
+
+def test_process_off_link_route(route_processor, mock_route_configurator):
+    """Test processing of a Router Advertisement with off-link route."""
+    # Create route info object for off-link route
+    route_info = RouteInfo(
+        prefix="fd2b:7eb9:619c::",
+        prefix_len=64,
+        router="fe80::85e:1f44:c26f:229",
+        is_prefix=False,  # This is an off-link route
+        lifetime=1800
+    )
+    
+    # Process the route information
+    route_processor.process_route_info(route_info)
+    
+    # Verify configure was called with correct parameters
+    mock_route_configurator.configure.assert_called_once_with(
+        "fd2b:7eb9:619c::",  # base_prefix
+        64,  # prefix_len
+        "fe80::85e:1f44:c26f:229",  # router
+        is_prefix=False  # is_prefix
     ) 

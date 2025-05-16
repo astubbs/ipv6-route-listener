@@ -64,7 +64,7 @@ validate_interface "$IFACE"
 validate_router "$ROUTER"
 
 # Log the configuration
-echo "🔍 Configuring ${IS_PREFIX:+prefix}${IS_PREFIX:-route}: $PREFIX/$PREFIX_LEN via $ROUTER on interface $IFACE"
+echo "🔍 Configuring ${IS_PREFIX:+prefix}${IS_PREFIX:-route}1: $PREFIX/$PREFIX_LEN via $ROUTER on interface $IFACE"
 
 # Remove any existing routes for this prefix
 # This includes both exact matches and higher-order subnets
@@ -93,21 +93,36 @@ for LENGTH in 64 48 32 16; do
 done
 
 # Add the new route with the specified prefix length
-echo "➕ Adding ${IS_PREFIX:+prefix}${IS_PREFIX:-route} to $BASE_PREFIX/$PREFIX_LEN via $ROUTER on $IFACE"
+echo "➕ Adding ${IS_PREFIX:+prefix}${IS_PREFIX:-route}1 to $BASE_PREFIX/$PREFIX_LEN via $ROUTER on $IFACE"
 if [ "$IS_PREFIX" = "1" ]; then
     # For prefixes, we add a route with the 'onlink' flag
-    if ip -6 route add "$BASE_PREFIX/$PREFIX_LEN" via "$ROUTER" dev "$IFACE" onlink; then
-        echo "✅ Prefix added successfully"
-    else
-        echo "❌ Failed to add prefix"
+    cmd="ip -6 route add $BASE_PREFIX/$PREFIX_LEN via $ROUTER dev $IFACE onlink"
+    echo "   Executing: $cmd"
+    if ! output=$($cmd 2>&1); then
+        echo "❌ Failed to add prefix: $output"
         exit 1
     fi
+    echo "✅ Prefix added successfully"
 else
-    # For routes, we add a normal route
-    if ip -6 route add "$BASE_PREFIX/$PREFIX_LEN" via "$ROUTER" dev "$IFACE"; then
-        echo "✅ Route added successfully"
-    else
-        echo "❌ Failed to add route"
+    # For routes, we add a normal route without the onlink flag
+    cmd="ip -6 route add $BASE_PREFIX/$PREFIX_LEN via $ROUTER dev $IFACE"
+    echo "   Executing: $cmd"
+    if ! output=$($cmd 2>&1); then
+        echo "❌ Failed to add route: $output"
         exit 1
     fi
-fi 
+    echo "✅ Route added successfully"
+fi
+
+# Verify the route was added
+echo "🔍 Verifying route configuration..."
+if ip -6 route show | grep -q "$BASE_PREFIX/$PREFIX_LEN"; then
+    echo "✅ Route verified successfully"
+else
+    echo "❌ Route verification failed: Route not found"
+    exit 1
+fi
+
+# Show the current route table
+echo "📋 Current route table:"
+ip -6 route show | grep "$BASE_PREFIX" || true 

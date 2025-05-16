@@ -113,6 +113,10 @@ class RouteConfigurator:
             self.seen_routes.add(route_key)
         except subprocess.CalledProcessError as e:
             self.logger.error(f"❌ Failed to configure {'prefix' if is_prefix else 'route'}: {e.stderr}")
+            if self.logger.verbose:
+                self.logger.debug(f"Command output: {e.stdout}")
+                self.logger.debug(f"Command error: {e.stderr}")
+                self.logger.debug(f"Return code: {e.returncode}")
             
     def get_route_key(self, prefix: str, router: str = None) -> str:
         """Generate a unique key for a route.

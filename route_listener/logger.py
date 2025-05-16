@@ -2,19 +2,23 @@
 
 import logging
 import sys
+import os
 from datetime import datetime
 from typing import Optional
+from logging.handlers import RotatingFileHandler
 
 class Logger:
     """Custom logger for the route listener application."""
     
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, log_file: str = "route_listener.log"):
         """Initialize the logger.
         
         Args:
             verbose: Whether to enable verbose logging output
+            log_file: Path to the log file (default: route_listener.log)
         """
         self.verbose = verbose
+        self.log_file = log_file
         self._setup_logging()
         
     def _setup_logging(self):
@@ -26,10 +30,28 @@ class Logger:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         
+        # Create a file handler with 100KB size limit
+        file_handler = RotatingFileHandler(
+            self.log_file,
+            maxBytes=100 * 1024,  # 100KB
+            backupCount=3,  # Keep 3 backup files
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(formatter)
+        
         # Create a logger
         self._logger = logging.getLogger('route_listener')
         self._logger.setLevel(logging.DEBUG)  # Set to DEBUG by default
+        
+        # Remove any existing handlers
+        self._logger.handlers = []
+        
+        # Add handlers
         self._logger.addHandler(console_handler)
+        self._logger.addHandler(file_handler)
+        
+        # Log startup message
+        self._logger.info(f"Logging initialized. Console output enabled. File logging to {self.log_file} (100KB limit)")
         
     def setLevel(self, level: int) -> None:
         """Set the logging level.
