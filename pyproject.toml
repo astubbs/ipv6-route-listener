@@ -1,9 +1,21 @@
 [tool.poetry]
 name = "route-listener"
 version = "0.1.0"
-description = "ICMPv6 RA Listener for IPv6 route configuration"
-authors = ["Your Name <your.email@example.com>"]
+description = "Listens for IPv6 Router Advertisements and configures ULA routes on the host. A workaround for Synology DSM (and other Linux distros) missing CONFIG_IPV6_ROUTE_INFO, enabling Home Assistant to reach Matter/Thread devices."
+authors = ["Antony Stubbs <antony.stubbs@gmail.com>"]
+license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/astubbs/ipv6-route-listener"
+repository = "https://github.com/astubbs/ipv6-route-listener"
+keywords = ["ipv6", "router-advertisement", "thread", "matter", "synology", "home-assistant", "icmpv6", "ula"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: System :: Networking",
+    "Topic :: Home Automation",
+]
 packages = [{include = "route_listener"}]
 
 [tool.poetry.dependencies]
