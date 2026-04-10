@@ -1,11 +1,12 @@
 """Integration tests for route advertisement processing."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from route_listener.route_configurator import RouteConfigurator, Route, RouteExecutor
+
 from route_listener.logger import Logger
 from route_listener.packet_parser import PacketParser
-from unittest.mock import patch, MagicMock
-import subprocess
+from route_listener.route_configurator import Route, RouteConfigurator, RouteExecutor
 
 # Sample data representing Router Advertisement packets
 SAMPLE_RA_PACKETS = [

@@ -1,10 +1,11 @@
 """Tests for Router Advertisement processing."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import Mock, MagicMock
-from route_listener.route_configurator import RouteConfigurator, Route, RouteExecutor
+
 from route_listener.logger import Logger
-from route_listener.packet_parser import PacketParser
+from route_listener.route_configurator import Route, RouteConfigurator, RouteExecutor
 
 # Sample Router Advertisement data
 TEST_RAS = [

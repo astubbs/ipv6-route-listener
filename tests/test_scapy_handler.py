@@ -1,13 +1,16 @@
 """Tests for ScapyPacketHandler."""
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from route_listener.scapy_handler import ScapyPacketHandler
-from route_listener.route_configurator import RouteConfigurator, Route
+from scapy.all import IPv6
+
 from route_listener.logger import Logger
 from route_listener.packet_parser import PacketParser
+from route_listener.route_configurator import RouteConfigurator
 from route_listener.router_solicitor import RouterSolicitor
-from scapy.all import IPv6, ICMPv6ND_RA
+from route_listener.scapy_handler import ScapyPacketHandler
+
 
 @pytest.fixture
 def mock_logger():

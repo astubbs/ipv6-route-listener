@@ -1,10 +1,12 @@
 """Tests for packet filtering and logging behavior."""
 
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, patch, call, ANY
-from scapy.all import IPv6, ICMPv6ND_RA, ICMPv6NDOptPrefixInfo, ICMPv6NDOptRouteInfo
-from route_listener.scapy_handler import ScapyPacketHandler
+from scapy.all import ICMPv6ND_RA, ICMPv6NDOptPrefixInfo, ICMPv6NDOptRouteInfo, IPv6
+
 from route_listener.logger import Logger
+from route_listener.scapy_handler import ScapyPacketHandler
 
 # Test data constants
 TEST_ROUTER = "fe80::1"

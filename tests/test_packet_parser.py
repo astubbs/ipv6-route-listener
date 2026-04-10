@@ -1,9 +1,18 @@
 """Tests for packet parsing functionality."""
 
+
 import pytest
-from unittest.mock import Mock, MagicMock
-from scapy.all import IPv6, ICMPv6ND_RA, ICMPv6NDOptPrefixInfo, ICMPv6NDOptRouteInfo, ICMPv6NDOptSrcLLAddr, Ether
+from scapy.all import (
+    Ether,
+    ICMPv6ND_RA,
+    ICMPv6NDOptPrefixInfo,
+    ICMPv6NDOptRouteInfo,
+    ICMPv6NDOptSrcLLAddr,
+    IPv6,
+)
+
 from route_listener.packet_parser import PacketParser
+
 
 @pytest.fixture
 def packet_parser():

@@ -1,8 +1,11 @@
 """Shared test configurations and fixtures."""
 
-import pytest
 import logging
+
+import pytest
+
 from route_listener.logger import Logger
+
 
 @pytest.fixture(scope="session")
 def test_logger():
