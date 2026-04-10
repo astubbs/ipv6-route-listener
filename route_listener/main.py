@@ -2,10 +2,12 @@
 """Main module for the ICMPv6 RA Listener."""
 
 import argparse
-import sys
-import platform
 import logging
-from scapy.all import get_if_list, conf
+import platform
+
+from scapy.all import conf, get_if_list
+
+from .config import DEFAULT_INTERFACE
 from .logger import Logger
 from .route_configurator import RouteConfigurator
 from .scapy_handler import ScapyPacketHandler
@@ -18,7 +20,7 @@ def main():
     """Main entry point for the application."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="ICMPv6 RA Listener for IPv6 route configuration")
-    parser.add_argument("-i", "--interface", default="eth0", help="Network interface to monitor")
+    parser.add_argument("-i", "--interface", default=DEFAULT_INTERFACE, help="Network interface to monitor")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--enable-rs", action="store_true", help="Enable Router Solicitation")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging output")

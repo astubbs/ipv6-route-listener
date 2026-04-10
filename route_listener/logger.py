@@ -2,10 +2,10 @@
 
 import logging
 import sys
-import os
-from datetime import datetime
-from typing import Optional
 from logging.handlers import RotatingFileHandler
+
+from .config import LOG_BACKUP_COUNT, LOG_FILE_MAX_BYTES
+
 
 class Logger:
     """Custom logger for the route listener application."""
@@ -30,11 +30,11 @@ class Logger:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         
-        # Create a file handler with 100KB size limit
+        # Create a file handler with size limit
         file_handler = RotatingFileHandler(
             self.log_file,
-            maxBytes=100 * 1024,  # 100KB
-            backupCount=3,  # Keep 3 backup files
+            maxBytes=LOG_FILE_MAX_BYTES,
+            backupCount=LOG_BACKUP_COUNT,
             encoding='utf-8'
         )
         file_handler.setFormatter(formatter)
@@ -79,12 +79,11 @@ class Logger:
         
     def debug(self, message: str) -> None:
         """Log a debug message.
-        
+
         Args:
             message: The message to log
         """
-        if self.verbose:
-            self._logger.debug(message)
+        self._logger.debug(message)
         
     def isEnabledFor(self, level: int) -> bool:
         """Check if the logger is enabled for the given level.
@@ -110,11 +109,8 @@ class Logger:
             prefix_len: The prefix length
             router: The router address (if different from source)
         """
-        if not self.verbose:
-            return
-            
         router_str = f" via {router}" if router and router != src_addr else ""
-        self._logger.info(f"🔔 RA from {src_addr}: {prefix}/{prefix_len}{router_str}")
+        self._logger.debug(f"🔔 RA from {src_addr}: {prefix}/{prefix_len}{router_str}")
 
     def ignored_route(self, prefix: str, prefix_len: int, reason: str) -> None:
         """Log ignored route information in a single line.
@@ -124,5 +120,4 @@ class Logger:
             prefix_len: The prefix length
             reason: The reason for ignoring the route
         """
-        if self.verbose:
-            self._logger.info(f"⏭️  Ignored {prefix}/{prefix_len}: {reason}") 
+        self._logger.debug(f"⏭️  Ignored {prefix}/{prefix_len}: {reason}") 

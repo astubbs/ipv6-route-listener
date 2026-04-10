@@ -1,7 +1,7 @@
 """Packet parsing for Router Advertisements."""
 
-from scapy.all import IPv6, ICMPv6ND_RA, ICMPv6NDOptPrefixInfo, ICMPv6NDOptRouteInfo
-from .route_info import RouteInfo
+from scapy.all import ICMPv6ND_RA, ICMPv6NDOptPrefixInfo, ICMPv6NDOptRouteInfo, IPv6
+
 
 class PacketParser:
     """Handles parsing of Router Advertisement packets."""
@@ -31,14 +31,14 @@ class PacketParser:
         """
         try:
             # Ensure we have an IPv6 packet
-            if not IPv6 in packet:
-                if self.logger and self.logger.verbose:
+            if IPv6 not in packet:
+                if self.logger:
                     self.logger.debug("⏭️  Ignoring non-IPv6 packet")
                 return {}
                 
             # Check if it's a Router Advertisement
-            if not ICMPv6ND_RA in packet:
-                if self.logger and self.logger.verbose:
+            if ICMPv6ND_RA not in packet:
+                if self.logger:
                     self.logger.debug("⏭️  Ignoring non-RA packet")
                 return {}
                 
@@ -48,7 +48,7 @@ class PacketParser:
             ra = packet[ICMPv6ND_RA]
             
             # Now we can log the packet details if in debug mode
-            if self.logger and self.logger.verbose:
+            if self.logger:
                 self.logger.debug(f"🔍 Raw RA data: {ra.show()}")
                 self.logger.debug(f"🔍 RA options: {ra.payload}")
             
@@ -73,8 +73,8 @@ class PacketParser:
             return packet_info
                     
         except Exception as e:
-            if self.logger and self.logger.verbose:
-                self.logger.error(f"Error parsing packet: {str(e)}")
+            if self.logger:
+                self.logger.error(f"Error parsing packet: {e!s}")
             raise
                 
     def _process_option(self, opt, packet_info):
@@ -87,7 +87,7 @@ class PacketParser:
         Raises:
             Exception: If the option is malformed or contains invalid data
         """
-        if self.logger and self.logger.verbose:
+        if self.logger:
             self.logger.debug(f"🔍 Processing option: {type(opt).__name__}")
             self.logger.debug(f"🔍 Option data: {opt.show()}")
         
@@ -104,7 +104,7 @@ class PacketParser:
                 
             prefix_str = str(opt.prefix)
             prefix_len = opt.prefixlen
-            if self.logger and self.logger.verbose:
+            if self.logger:
                 self.logger.debug(f"🔍 Found on-link prefix: {prefix_str}/{prefix_len}")
                 self.logger.info(f"📡 On-link prefix: {prefix_str}/{prefix_len} (directly connected)")
             packet_info["prefix"] = {
@@ -126,7 +126,7 @@ class PacketParser:
                 
             prefix_str = str(opt.prefix)
             prefix_len = opt.plen  # Route Info uses 'plen' instead of 'prefixlen'
-            if self.logger and self.logger.verbose:
+            if self.logger:
                 self.logger.debug(f"🔍 Found off-link route: {prefix_str}/{prefix_len}")
                 self.logger.info(f"🛣️  Off-link route: {prefix_str}/{prefix_len} (via {packet_info['src_ip']})")
             packet_info["route"] = {
@@ -134,6 +134,5 @@ class PacketParser:
                 "length": prefix_len,
                 "lifetime": opt.rtlifetime
             }
-        else:
-            if self.logger and self.logger.verbose:
-                self.logger.debug(f"⏭️  Ignoring option type: {type(opt).__name__}") 
+        elif self.logger:
+            self.logger.debug(f"⏭️  Ignoring option type: {type(opt).__name__}") 

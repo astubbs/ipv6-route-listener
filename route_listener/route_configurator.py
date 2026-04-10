@@ -2,10 +2,11 @@
 
 import os
 import subprocess
-import re
-from typing import Optional, Dict, Set
 from dataclasses import dataclass
+
+from .config import DEFAULT_INTERFACE
 from .logger import Logger
+
 
 @dataclass
 class Route:
@@ -31,7 +32,7 @@ class Route:
 class RouteExecutor:
     """Handles the actual execution of route configuration commands."""
     
-    def __init__(self, logger: Logger, interface: str = "eth0"):
+    def __init__(self, logger: Logger, interface: str = DEFAULT_INTERFACE):
         """Initialize route executor.
         
         Args:
@@ -63,7 +64,7 @@ class RouteExecutor:
             env["IS_PREFIX"] = "1" if route.is_prefix else "0"
                 
             # Log the parameters before running the script
-            self.logger.info(f"🔍 Running script with parameters:")
+            self.logger.info("🔍 Running script with parameters:")
             self.logger.info(f"   PREFIX: {route.prefix}")
             self.logger.info(f"   PREFIX_LEN: {prefix_len}")
             self.logger.info(f"   IFACE: {self.interface}")
@@ -78,7 +79,7 @@ class RouteExecutor:
                 [self.script_path],
                 env=env,
                 capture_output=True,
-                text=True
+                text=True, check=False
             )
             
             # Check the return code
@@ -87,29 +88,26 @@ class RouteExecutor:
                 return True
             else:
                 self.logger.error(f"❌ Failed to configure {'prefix' if route.is_prefix else 'route'}: {result.stderr}")
-                if self.logger.verbose:
-                    self.logger.debug(f"Command output: {result.stdout}")
-                    self.logger.debug(f"Command error: {result.stderr}")
-                    self.logger.debug(f"Return code: {result.returncode}")
+                self.logger.debug(f"Command output: {result.stdout}")
+                self.logger.debug(f"Command error: {result.stderr}")
+                self.logger.debug(f"Return code: {result.returncode}")
                 return False
-            
+
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"❌ Script execution failed: {str(e)}")
-            if self.logger.verbose:
-                self.logger.debug(f"Command output: {e.stdout}")
-                self.logger.debug(f"Command error: {e.stderr}")
-                self.logger.debug(f"Return code: {e.returncode}")
+            self.logger.error(f"❌ Script execution failed: {e!s}")
+            self.logger.debug(f"Command output: {e.stdout}")
+            self.logger.debug(f"Command error: {e.stderr}")
+            self.logger.debug(f"Return code: {e.returncode}")
             return False
         except Exception as e:
-            self.logger.error(f"❌ Unexpected error during route configuration: {str(e)}")
-            if self.logger.verbose:
-                self.logger.debug(f"Error details: {str(e)}")
+            self.logger.error(f"❌ Unexpected error during route configuration: {e!s}")
+            self.logger.debug(f"Error details: {e!s}")
             return False
 
 class RouteConfigurator:
     """Handles IPv6 route configuration."""
     
-    def __init__(self, logger: Logger, interface: str = "eth0"):
+    def __init__(self, logger: Logger, interface: str = DEFAULT_INTERFACE):
         """Initialize route configurator.
         
         Args:

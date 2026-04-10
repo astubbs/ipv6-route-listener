@@ -1,10 +1,12 @@
 """Scapy packet handling for IPv6 Router Advertisements."""
 
-from scapy.all import sniff, IPv6, ICMPv6ND_RA, ICMPv6NDOptPrefixInfo, ICMPv6NDOptRouteInfo
-from .route_configurator import RouteConfigurator
+from scapy.all import ICMPv6ND_RA, IPv6, sniff
+
 from .logger import Logger
 from .packet_parser import PacketParser
+from .route_configurator import RouteConfigurator
 from .router_solicitor import RouterSolicitor
+
 
 class ScapyPacketHandler:
     """Handles IPv6 Router Advertisement packets using Scapy."""
@@ -55,19 +57,16 @@ class ScapyPacketHandler:
         try:
             # Check if it's an IPv6 packet
             if not packet.haslayer(IPv6):
-                if self.logger.verbose:
-                    self.logger.debug("Ignoring non-IPv6 packet")
+                self.logger.debug("Ignoring non-IPv6 packet")
                 return
-            
+
             # Check if it's a Router Advertisement
             if not packet.haslayer(ICMPv6ND_RA):
-                if self.logger.verbose:
-                    self.logger.debug("Ignoring non-RA packet")
+                self.logger.debug("Ignoring non-RA packet")
                 return
-            
-            # Log packet details in verbose mode
-            if self.logger.verbose:
-                self.logger.debug(f"Received RA packet: {packet.summary()}")
+
+            # Log packet details in debug mode
+            self.logger.debug(f"Received RA packet: {packet.summary()}")
             
             # Parse the packet
             packet_info = self.packet_parser.parse(packet)
@@ -79,6 +78,5 @@ class ScapyPacketHandler:
             self.logger.info("✅ Processed Router Advertisement")
             
         except Exception as e:
-            self.logger.error(f"❌ Error processing packet: {str(e)}")
-            if self.logger.verbose:
-                self.logger.debug(f"Packet details: {packet.summary()}") 
+            self.logger.error(f"❌ Error processing packet: {e!s}")
+            self.logger.debug(f"Packet details: {packet.summary()}") 
