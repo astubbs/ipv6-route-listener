@@ -1,6 +1,13 @@
-# 🧭 Route Listener for ICMPv6 RAs (Thread Border Routers)
+# 🧭 IPv6 Route Listener for Thread Border Routers
 
-This project listens for IPv6 Router Advertisements (RAs) from Thread Border Routers and automatically configures ULA prefixes and routes on the host system. It's specifically designed for environments like Synology DSM where the kernel is missing support for processing IPv6 route advertisements for Matter/Thread subnets.
+[![CI](https://github.com/astubbs/ipv6-route-listener/actions/workflows/verify.yml/badge.svg)](https://github.com/astubbs/ipv6-route-listener/actions/workflows/verify.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](Dockerfile)
+
+**Get Matter/Thread devices working with Home Assistant on Synology NAS** (and other Linux systems missing `CONFIG_IPV6_ROUTE_INFO` in their kernel).
+
+This project listens for IPv6 Router Advertisements (RAs) from Thread Border Routers and automatically configures ULA prefixes and routes on the host system. It's a userspace workaround for Linux kernels — most notably **Synology DSM** — that don't process IPv6 Route Information Options needed by Matter/Thread subnets.
 
 ## 🎯 Purpose
 
@@ -21,14 +28,14 @@ This project provides a workaround by:
 1. **Clone this repo:**
 
     ```bash
-    git clone https://github.com/your/repo.git
-    cd route-listener
+    git clone https://github.com/astubbs/ipv6-route-listener.git
+    cd ipv6-route-listener
     ```
 
 2. **Build and run the Docker container:**
 
     ```bash
-    # Use default interface (ovs_eth0)
+    # Use default interface (ovs_eth2)
     ./run.sh
 
     # Or specify a custom interface
@@ -104,7 +111,6 @@ If you're not using Docker:
 2. **Route Filtering:**
    - Only ULA prefixes (starting with 'fd') are configured
    - Non-ULA prefixes are ignored by default
-   - You can enable logging of ignored routes with the `--log-ignored` option
    - **Why only ULA prefixes?** Matter/Thread devices use ULA (Unique Local Address) prefixes for their internal communication. These prefixes are guaranteed to be unique and are not routable on the public internet, making them ideal for local network communication. By filtering for only ULA prefixes, we ensure we're only configuring routes that are relevant for Matter/Thread device communication.
 
 3. **Router Discovery:**

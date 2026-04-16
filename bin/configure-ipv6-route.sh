@@ -78,8 +78,7 @@ echo "   Checking for existing routes..."
 ip -6 route show | grep "$BASE_PREFIX" | while read -r route; do
     if [ -n "$route" ]; then
         echo "   🗑️  Removing: $route"
-        # Use eval to properly handle the route string
-        eval "ip -6 route del $route" 2>/dev/null || true
+        ip -6 route del $route 2>/dev/null || true
     fi
 done
 

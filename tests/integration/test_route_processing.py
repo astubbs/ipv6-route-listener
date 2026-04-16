@@ -1,194 +1,113 @@
-"""Integration tests for route advertisement processing."""
+"""End-to-end tests: real Scapy RA packet -> real PacketParser -> RouteConfigurator.
+
+The unit-level tests in tests/test_router_advertisement.py call
+process_packet_info() directly with parsed-info dicts. This file tests the
+full chain by feeding actual Scapy-constructed packets through the real
+PacketParser, with only the RouteExecutor mocked (so we don't run shell
+commands).
+"""
 
 import pytest
-from route_listener.route_configurator import RouteConfigurator, Route, RouteExecutor
-from route_listener.logger import Logger
+from scapy.all import (
+    Ether,
+    ICMPv6ND_RA,
+    ICMPv6NDOptPrefixInfo,
+    ICMPv6NDOptRouteInfo,
+    IPv6,
+)
+
 from route_listener.packet_parser import PacketParser
-from unittest.mock import patch, MagicMock
-import subprocess
+from route_listener.route_configurator import Route
 
-# Sample data representing Router Advertisement packets
-SAMPLE_RA_PACKETS = [
-    {
-        "description": "RA with ULA prefix and route",
-        "src_ip": "fe80::f209:dff:fe35:48a",
-        "prefix": {
-            "address": "fd82:cd32:5ad7:ff4a::",
-            "length": 64,
-            "on_link": True,
-            "autonomous": True,
-            "valid_time": 1800,
-            "pref_time": 1800
-        },
-        "route": {
-            "address": "fd4e:a053:febd::",
-            "length": 64,
-            "lifetime": 1800
-        }
-    },
-    {
-        "description": "RA with non-ULA prefix",
-        "src_ip": "fe80::f209:dff:fe35:48a",
-        "prefix": {
-            "address": "2406:e001:abcd:5600::",
-            "length": 64,
-            "on_link": True,
-            "autonomous": False,
-            "valid_time": 86400,
-            "pref_time": 14400
-        }
-    }
-]
-
-@pytest.fixture
-def mock_logger():
-    """Create a mock logger for testing."""
-    logger = MagicMock(spec=Logger)
-    logger.verbose = True
-    return logger
-
-@pytest.fixture
-def mock_executor(mock_logger):
-    """Create a mock route executor."""
-    executor = MagicMock(spec=RouteExecutor)
-    executor.execute.return_value = True
-    return executor
-
-@pytest.fixture
-def route_configurator(mock_logger, mock_executor):
-    """Create a RouteConfigurator instance with mocked dependencies."""
-    configurator = RouteConfigurator(logger=mock_logger, interface="eth0")
-    configurator.executor = mock_executor
-    return configurator
 
 @pytest.fixture
 def packet_parser():
-    """Create a packet parser instance."""
+    """Real PacketParser - no mocking."""
     return PacketParser()
 
-def test_process_ra_with_prefix_and_route(packet_parser, route_configurator, mock_logger, mock_executor):
-    """Test processing of a Router Advertisement with both prefix and route options."""
-    # Get test data
-    ra_data = SAMPLE_RA_PACKETS[0]
-    
-    # Create a dummy packet (in real code, this would be a Scapy packet)
-    dummy_packet = MagicMock()
-    
-    # Configure the parser to return our test data
-    packet_parser.parse = MagicMock(return_value={
-        "src_ip": ra_data["src_ip"],
-        "prefix": ra_data["prefix"],
-        "route": ra_data["route"]
-    })
-    
-    # Process the packet
-    packet_info = packet_parser.parse(dummy_packet)
-    
-    # Verify the packet was parsed correctly
-    assert packet_info["src_ip"] == ra_data["src_ip"]
-    assert packet_info["prefix"]["address"] == ra_data["prefix"]["address"]
-    assert packet_info["route"]["address"] == ra_data["route"]["address"]
-    
-    # Process the packet info
+
+def _build_ra(*, src: str, prefix: str | None = None, route: str | None = None):
+    """Construct a real Scapy Router Advertisement packet."""
+    pkt = Ether() / IPv6(src=src, dst="ff02::1") / ICMPv6ND_RA()
+    if prefix is not None:
+        pkt = pkt / ICMPv6NDOptPrefixInfo(
+            prefix=prefix, prefixlen=64, validlifetime=1800, preferredlifetime=1800
+        )
+    if route is not None:
+        pkt = pkt / ICMPv6NDOptRouteInfo(prefix=route, plen=64, rtlifetime=1800)
+    return pkt
+
+
+def test_real_ra_with_ula_prefix_and_route_is_processed_end_to_end(
+    packet_parser, route_configurator, mock_executor
+):
+    """Real Scapy RA packet -> real parser -> configurator -> mocked executor."""
+    src_ip = "fe80::f209:dff:fe35:48a"
+    prefix_addr = "fd82:cd32:5ad7:ff4a::"
+    route_addr = "fd4e:a053:febd::"
+
+    packet = _build_ra(src=src_ip, prefix=prefix_addr, route=route_addr)
+
+    # Real parser - no MagicMock around parse() this time.
+    packet_info = packet_parser.parse(packet)
     route_configurator.process_packet_info(packet_info)
-    
-    # Verify both routes were configured
+
     assert mock_executor.execute.call_count == 2
-    calls = mock_executor.execute.call_args_list
+    configured_prefixes = [call[0][0].prefix for call in mock_executor.execute.call_args_list]
+    assert prefix_addr in configured_prefixes
+    assert route_addr in configured_prefixes
 
-    # Verify prefix route
-    prefix_route = calls[0][0][0]
-    assert isinstance(prefix_route, Route)
-    assert prefix_route.prefix == ra_data["prefix"]["address"]
-    assert prefix_route.router == ra_data["src_ip"]
-    assert prefix_route.interface == "eth0"
-    assert prefix_route.is_prefix
+    # Both Routes should carry the source address as the router.
+    for call in mock_executor.execute.call_args_list:
+        configured_route = call[0][0]
+        assert isinstance(configured_route, Route)
+        assert configured_route.router == src_ip
+        assert configured_route.interface == "eth0"
 
-    # Verify off-link route
-    route_obj = calls[1][0][0]
-    assert isinstance(route_obj, Route)
-    assert route_obj.prefix == ra_data["route"]["address"]
-    assert route_obj.router == ra_data["src_ip"]
-    assert route_obj.interface == "eth0"
-    assert not route_obj.is_prefix
 
-    # Verify logging
-    mock_logger.info.assert_any_call(f"🔧 Configuring prefix for {ra_data['prefix']['address']}/{ra_data['prefix']['length']}")
-    mock_logger.info.assert_any_call(f"🔧 Configuring route for {ra_data['route']['address']}/{ra_data['route']['length']}")
+def test_real_ra_with_non_ula_prefix_is_ignored_end_to_end(
+    packet_parser, route_configurator, mock_executor
+):
+    """Non-ULA prefix in a real packet should not trigger any executor call."""
+    packet = _build_ra(src="fe80::f209:dff:fe35:48a", prefix="2406:e001:abcd:5600::")
 
-def test_process_ra_with_non_ula_prefix(packet_parser, route_configurator, mock_logger, mock_executor):
-    """Test processing of a Router Advertisement with non-ULA prefix."""
-    # Get test data
-    ra_data = SAMPLE_RA_PACKETS[1]
-    
-    # Create a dummy packet
-    dummy_packet = MagicMock()
-    
-    # Configure the parser to return our test data
-    packet_parser.parse = MagicMock(return_value={
-        "src_ip": ra_data["src_ip"],
-        "prefix": ra_data["prefix"]
-    })
-    
-    # Process the packet
-    packet_info = packet_parser.parse(dummy_packet)
-    
-    # Verify the packet was parsed correctly
-    assert packet_info["src_ip"] == ra_data["src_ip"]
-    assert packet_info["prefix"]["address"] == ra_data["prefix"]["address"]
-    
-    # Process the packet info
+    packet_info = packet_parser.parse(packet)
     route_configurator.process_packet_info(packet_info)
-    
-    # Verify no routes were configured (non-ULA prefix should be ignored)
+
     mock_executor.execute.assert_not_called()
 
-def test_duplicate_route_handling(packet_parser, route_configurator, mock_logger, mock_executor):
-    """Test that duplicate routes are not processed multiple times."""
-    # Get test data
-    ra_data = SAMPLE_RA_PACKETS[0]
-    
-    # Create a dummy packet
-    dummy_packet = MagicMock()
-    
-    # Configure the parser to return our test data
-    packet_parser.parse = MagicMock(return_value={
-        "src_ip": ra_data["src_ip"],
-        "prefix": ra_data["prefix"],
-        "route": ra_data["route"]
-    })
-    
-    # Process the packet twice
-    packet_info = packet_parser.parse(dummy_packet)
-    route_configurator.process_packet_info(packet_info)
-    route_configurator.process_packet_info(packet_info)
-    
-    # Verify the executor was only called once for each route
-    assert mock_executor.execute.call_count == 2
-    mock_logger.info.assert_any_call("⏭️  Prefix already configured: fd82:cd32:5ad7:ff4a::/64")
-    mock_logger.info.assert_any_call("⏭️  Route already configured: fd4e:a053:febd::/64")
 
-def test_route_configuration_failure(packet_parser, route_configurator, mock_logger, mock_executor):
-    """Test handling of route configuration failures."""
-    # Configure mock to simulate failure
+def test_real_ra_repeated_does_not_reconfigure_end_to_end(
+    packet_parser, route_configurator, mock_executor
+):
+    """Sending the same RA twice through the full pipeline configures each route once."""
+    packet = _build_ra(
+        src="fe80::f209:dff:fe35:48a",
+        prefix="fd82:cd32:5ad7:ff4a::",
+        route="fd4e:a053:febd::",
+    )
+
+    for _ in range(2):
+        packet_info = packet_parser.parse(packet)
+        route_configurator.process_packet_info(packet_info)
+
+    # Two routes (prefix + route) configured exactly once each.
+    assert mock_executor.execute.call_count == 2
+
+
+def test_real_ra_executor_failure_does_not_mark_route_seen(
+    packet_parser, route_configurator, mock_executor
+):
+    """If the executor reports failure, the route must remain unseen so a
+    subsequent RA gets retried."""
     mock_executor.execute.return_value = False
-    
-    # Get test data
-    ra_data = SAMPLE_RA_PACKETS[0]
-    
-    # Create a dummy packet
-    dummy_packet = MagicMock()
-    
-    # Configure the parser to return our test data
-    packet_parser.parse = MagicMock(return_value={
-        "src_ip": ra_data["src_ip"],
-        "prefix": ra_data["prefix"],
-        "route": ra_data["route"]
-    })
-    
-    # Process the packet
-    packet_info = packet_parser.parse(dummy_packet)
+    packet = _build_ra(
+        src="fe80::f209:dff:fe35:48a",
+        prefix="fd82:cd32:5ad7:ff4a::",
+        route="fd4e:a053:febd::",
+    )
+
+    packet_info = packet_parser.parse(packet)
     route_configurator.process_packet_info(packet_info)
-    
-    # Verify the routes were not added to seen_routes
-    assert len(route_configurator.seen_routes) == 0 
+
+    assert len(route_configurator.seen_routes) == 0
