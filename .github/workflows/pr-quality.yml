@@ -1,0 +1,81 @@
+name: PR Quality
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Block-level duplicate code detection (PMD CPD + jscpd) with base-vs-PR
+  # comparison. Posts a single PR comment with delta vs base branch and fails
+  # the build if duplication exceeds threshold or increases vs base.
+  duplicate-detection:
+    name: "Duplicate Code Check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astubbs/duplicate-code-cross-check@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          directories: 'route_listener tests'
+          file-extensions: 'py'
+          cpd-language: 'python'
+          jscpd-file-pattern: '**/*.py'
+          # Codebase has zero detected clones after the dedupe refactor.
+          # Lock that in: tight 1% absolute ceiling as a backstop, and
+          # zero-tolerance regression gates (was 0.1% default) so any
+          # newly-introduced duplication fails the build immediately.
+          cpd-max-duplication: '1'
+          jscpd-max-duplication: '1'
+          cpd-max-increase: '0'
+          jscpd-max-increase: '0'
+
+  # Whole-file similarity scoring (gensim TF-IDF). Complementary to the
+  # block-level CPD/jscpd detector above - catches files that should be
+  # merged or refactored at an architectural level.
+  file-similarity:
+    name: "File Similarity Check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astubbs/duplicate-code-detection-tool@feat/base-vs-pr-comparison
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          directories: 'route_listener,tests'
+          file_extensions: 'py'
+          # After the dedupe refactor the highest pair similarity is ~35%,
+          # which is the natural floor for Python files (shared imports,
+          # mock fixtures, dataclass shapes). Suppress reports below 40%
+          # so the PR comment surfaces only meaningful similarities.
+          ignore_below: 40
+          warn_above: 60
+          fail_above: 70
+          one_comment: true
+          compare_with_base: true
+          # Tighten regression gate from 10% to 5% so similarity creep
+          # gets caught before it accumulates.
+          max_increase: 5
+
+  # GitHub's dependency vulnerability scanner. Language-agnostic.
+  dependency-scan:
+    name: "Dependency Vulnerabilities"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: always
