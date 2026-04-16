@@ -57,6 +57,12 @@ This project provides a workaround by:
     docker-compose up -e INTERFACE=eth0
     ```
 
+    Other environment variables:
+    - `CLEANUP_PREFIX_LENGTHS` — space-separated list of prefix lengths the route-configuration script removes before adding a new route. Defaults to `"64 48 32 16"`. Set this if your network uses different prefix sizes:
+      ```bash
+      docker run -e CLEANUP_PREFIX_LENGTHS="64 56 48" ...
+      ```
+
 ## 🐍 Local Development
 
 If you're not using Docker:
@@ -105,8 +111,8 @@ If you're not using Docker:
 1. **Route Detection:**
    - Listens for ICMPv6 Router Advertisements on the specified network interface
    - Extracts ULA prefixes and routes from the advertisements
-   - Each route is processed only once (subsequent advertisements for the same route are ignored)
-   - If multiple routes are advertised for the same subnet, the last route wins
+   - A single RA can carry multiple `PrefixInfo` and `RouteInfo` options; all of them are processed (not just the first/last)
+   - Each (prefix, router) pair is processed only once; subsequent identical advertisements are ignored
 
 2. **Route Filtering:**
    - Only ULA prefixes (starting with 'fd') are configured
@@ -122,8 +128,8 @@ If you're not using Docker:
 4. **Route Configuration:**
    - When a new ULA route is detected, an external script (`configure-ipv6-route.sh`) is called
    - The script uses the `ip` command to add the route to the kernel
-   - Existing routes with the same prefix are removed before adding the new one
-   - If multiple routes are advertised for the same subnet, the last route wins
+   - Existing routes with the same prefix are removed before adding the new one. The set of prefix lengths cleaned up is configurable via `CLEANUP_PREFIX_LENGTHS` (defaults to `64 48 32 16`)
+   - If the same prefix is later advertised by a *different* router, the existing route is replaced and a warning is logged so operators can notice failover or misconfiguration
 
 ## Router Advertisement Prefix Types
 
