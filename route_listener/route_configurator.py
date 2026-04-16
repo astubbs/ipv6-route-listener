@@ -121,6 +121,10 @@ class RouteConfigurator:
         self.logger = logger
         self.interface = interface
         self.seen_routes: set[str] = set()
+        # Track the most recent router that advertised each prefix, so we can
+        # warn when a different router takes over (the OS route silently
+        # changes; this surface lets us notice).
+        self.prefix_to_router: dict[str, str] = {}
         self.executor = RouteExecutor(logger, interface)
 
     def is_configured(self, prefix: str, prefix_len: int, is_prefix: bool = False) -> bool:
@@ -165,6 +169,19 @@ class RouteConfigurator:
             )
             return
 
+        # Warn if a different router previously advertised this prefix - the
+        # ip command will overwrite the existing route, which is silent in the
+        # OS but worth flagging since it usually means failover or a config
+        # change.
+        base_prefix = prefix.split("/")[0]
+        previous_router = self.prefix_to_router.get(base_prefix)
+        if router and previous_router and previous_router != router:
+            self.logger.error(
+                f"⚠️  Prefix {prefix}/{prefix_len} now advertised by {router}; "
+                f"previously configured via {previous_router}. Existing route "
+                f"will be replaced."
+            )
+
         self.logger.info(
             f"🔧 Configuring {'prefix' if is_prefix else 'route'} for {prefix}/{prefix_len}"
         )
@@ -172,6 +189,8 @@ class RouteConfigurator:
         # Execute the route configuration
         if self.executor.execute(route, prefix_len):
             self.seen_routes.add(route_key)
+            if router:
+                self.prefix_to_router[base_prefix] = router
 
     def get_route_key(self, prefix: str, router: str | None = None) -> str:
         """Generate a unique key for a route.
@@ -195,27 +214,22 @@ class RouteConfigurator:
         Args:
             packet_info: Dictionary containing packet information:
                 - src_ip: Source IP address of the Router Advertisement
-                - prefix: Optional prefix information dictionary
-                - route: Optional route information dictionary
+                - prefixes: List of prefix information dictionaries
+                - routes: List of route information dictionaries
+
+        Iterates both lists so all prefixes and routes in a single RA get
+        configured (a Border Router can advertise several at once).
         """
         src_ip = packet_info["src_ip"]
 
-        # Process prefix if present
-        if "prefix" in packet_info:
-            prefix_info = packet_info["prefix"]
+        for prefix_info in packet_info.get("prefixes", []):
             prefix = prefix_info["address"]
             prefix_len = prefix_info["length"]
-
-            # Only configure ULA prefixes
             if prefix.startswith("fd"):
                 self.configure(prefix, prefix_len, router=src_ip, is_prefix=True)
 
-        # Process route if present
-        if "route" in packet_info:
-            route_info = packet_info["route"]
+        for route_info in packet_info.get("routes", []):
             route = route_info["address"]
             route_len = route_info["length"]
-
-            # Only configure ULA routes
             if route.startswith("fd"):
                 self.configure(route, route_len, router=src_ip, is_prefix=False)

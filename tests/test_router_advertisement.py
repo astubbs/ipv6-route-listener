@@ -20,14 +20,14 @@ def test_process_ula_prefix_and_route(route_configurator, mock_executor):
 
     prefix_route = calls[0][0][0]
     assert isinstance(prefix_route, Route)
-    assert prefix_route.prefix == ra_data["prefix"]["address"]
+    assert prefix_route.prefix == ra_data["prefixes"][0]["address"]
     assert prefix_route.router == ra_data["src_ip"]
     assert prefix_route.interface == "eth0"
     assert prefix_route.is_prefix
 
     route_obj = calls[1][0][0]
     assert isinstance(route_obj, Route)
-    assert route_obj.prefix == ra_data["route"]["address"]
+    assert route_obj.prefix == ra_data["routes"][0]["address"]
     assert route_obj.router == ra_data["src_ip"]
     assert route_obj.interface == "eth0"
     assert not route_obj.is_prefix
@@ -49,7 +49,7 @@ def test_process_ula_prefix_only(route_configurator, mock_executor):
     mock_executor.execute.assert_called_once()
     route = mock_executor.execute.call_args[0][0]
     assert isinstance(route, Route)
-    assert route.prefix == ra_data["prefix"]["address"]
+    assert route.prefix == ra_data["prefixes"][0]["address"]
     assert route.is_prefix
 
 

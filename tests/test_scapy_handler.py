@@ -62,15 +62,17 @@ def test_handle_router_advertisement(scapy_handler, mock_route_configurator, moc
     scapy_handler.packet_parser.parse = Mock(
         return_value={
             "src_ip": "fe80::1",
-            "prefix": {
-                "address": "fd82:cd32:5ad7:ff4a::",
-                "length": 64,
-                "on_link": True,
-                "autonomous": True,
-                "valid_time": 1800,
-                "pref_time": 1800,
-            },
-            "route": {"address": "fd2b:7eb9:619c::", "length": 64, "lifetime": 1800},
+            "prefixes": [
+                {
+                    "address": "fd82:cd32:5ad7:ff4a::",
+                    "length": 64,
+                    "on_link": True,
+                    "autonomous": True,
+                    "valid_time": 1800,
+                    "pref_time": 1800,
+                }
+            ],
+            "routes": [{"address": "fd2b:7eb9:619c::", "length": 64, "lifetime": 1800}],
         }
     )
 
@@ -81,8 +83,8 @@ def test_handle_router_advertisement(scapy_handler, mock_route_configurator, moc
     mock_route_configurator.process_packet_info.assert_called_once()
     call_args = mock_route_configurator.process_packet_info.call_args[0][0]
     assert call_args["src_ip"] == "fe80::1"
-    assert call_args["prefix"]["address"] == "fd82:cd32:5ad7:ff4a::"
-    assert call_args["route"]["address"] == "fd2b:7eb9:619c::"
+    assert call_args["prefixes"][0]["address"] == "fd82:cd32:5ad7:ff4a::"
+    assert call_args["routes"][0]["address"] == "fd2b:7eb9:619c::"
 
 
 def test_handle_packet_error(scapy_handler, mock_logger):
@@ -179,14 +181,17 @@ def test_process_valid_ra_packet(scapy_handler, mock_logger, mock_route_configur
     scapy_handler.packet_parser.parse = Mock(
         return_value={
             "src_ip": "fe80::1",
-            "prefix": {
-                "address": "fd82:cd32:5ad7:ff4a::",
-                "length": 64,
-                "on_link": True,
-                "autonomous": True,
-                "valid_time": 1800,
-                "pref_time": 1800,
-            },
+            "prefixes": [
+                {
+                    "address": "fd82:cd32:5ad7:ff4a::",
+                    "length": 64,
+                    "on_link": True,
+                    "autonomous": True,
+                    "valid_time": 1800,
+                    "pref_time": 1800,
+                }
+            ],
+            "routes": [],
         }
     )
 

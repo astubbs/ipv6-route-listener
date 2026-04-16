@@ -27,8 +27,11 @@ class PacketParser:
         Returns:
             dict: Dictionary containing packet information:
                 - src_ip: Source IP address of the Router Advertisement
-                - prefix: Optional prefix information dictionary
-                - route: Optional route information dictionary
+                - prefixes: List of prefix information dictionaries (may be empty)
+                - routes: List of route information dictionaries (may be empty)
+
+        A single RA can carry multiple PrefixInfo and RouteInfo options, so both
+        keys are always lists - callers must iterate.
 
         Raises:
             Exception: If the packet is malformed or contains invalid options
@@ -56,8 +59,13 @@ class PacketParser:
                 self.logger.debug(f"🔍 Raw RA data: {ra.show()}")
                 self.logger.debug(f"🔍 RA options: {ra.payload}")
 
-            # Initialize packet info dictionary
-            packet_info = {"src_ip": src_addr}
+            # Initialize packet info dictionary. prefixes/routes are lists
+            # because a single RA can carry multiple PrefixInfo/RouteInfo options.
+            packet_info: dict[str, Any] = {
+                "src_ip": src_addr,
+                "prefixes": [],
+                "routes": [],
+            }
 
             # Get all options from the RA packet
             options = ra.payload if hasattr(ra, "payload") else []
@@ -111,14 +119,16 @@ class PacketParser:
                 self.logger.info(
                     f"📡 On-link prefix: {prefix_str}/{prefix_len} (directly connected)"
                 )
-            packet_info["prefix"] = {
-                "address": prefix_str,
-                "length": prefix_len,
-                "on_link": True,
-                "autonomous": True,
-                "valid_time": opt.validlifetime,
-                "pref_time": opt.preferredlifetime,
-            }
+            packet_info["prefixes"].append(
+                {
+                    "address": prefix_str,
+                    "length": prefix_len,
+                    "on_link": True,
+                    "autonomous": True,
+                    "valid_time": opt.validlifetime,
+                    "pref_time": opt.preferredlifetime,
+                }
+            )
         elif isinstance(opt, ICMPv6NDOptRouteInfo):
             # Check for None values
             if opt.prefix is None:
@@ -135,10 +145,12 @@ class PacketParser:
                 self.logger.info(
                     f"🛣️  Off-link route: {prefix_str}/{prefix_len} (via {packet_info['src_ip']})"
                 )
-            packet_info["route"] = {
-                "address": prefix_str,
-                "length": prefix_len,
-                "lifetime": opt.rtlifetime,
-            }
+            packet_info["routes"].append(
+                {
+                    "address": prefix_str,
+                    "length": prefix_len,
+                    "lifetime": opt.rtlifetime,
+                }
+            )
         elif self.logger:
             self.logger.debug(f"⏭️  Ignoring option type: {type(opt).__name__}")

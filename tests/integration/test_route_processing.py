@@ -95,6 +95,35 @@ def test_real_ra_repeated_does_not_reconfigure_end_to_end(
     assert mock_executor.execute.call_count == 2
 
 
+def test_real_ra_with_multiple_prefixes_configures_each_end_to_end(
+    packet_parser, route_configurator, mock_executor
+):
+    """An RA with multiple PrefixInfo options must configure all of them, not
+    just the last one. Regression guard for the previous single-prefix bug."""
+    src_ip = "fe80::f209:dff:fe35:48a"
+    packet = (
+        Ether()
+        / IPv6(src=src_ip, dst="ff02::1")
+        / ICMPv6ND_RA()
+        / ICMPv6NDOptPrefixInfo(
+            prefix="fd00:1::", prefixlen=64, validlifetime=1800, preferredlifetime=1800
+        )
+        / ICMPv6NDOptPrefixInfo(
+            prefix="fd00:2::", prefixlen=64, validlifetime=1800, preferredlifetime=1800
+        )
+        / ICMPv6NDOptRouteInfo(prefix="fd11:1::", plen=48, rtlifetime=1800)
+        / ICMPv6NDOptRouteInfo(prefix="fd11:2::", plen=48, rtlifetime=1800)
+    )
+
+    packet_info = packet_parser.parse(packet)
+    route_configurator.process_packet_info(packet_info)
+
+    # All four (2 prefixes + 2 routes) must reach the executor.
+    assert mock_executor.execute.call_count == 4
+    configured = {call[0][0].prefix for call in mock_executor.execute.call_args_list}
+    assert configured == {"fd00:1::", "fd00:2::", "fd11:1::", "fd11:2::"}
+
+
 def test_real_ra_executor_failure_does_not_mark_route_seen(
     packet_parser, route_configurator, mock_executor
 ):

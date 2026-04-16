@@ -131,7 +131,8 @@ def test_process_packet_info_ula_prefix(mock_logger):
         configurator.process_packet_info(
             {
                 "src_ip": "fe80::1",
-                "prefix": {"address": "fd00::", "length": 64},
+                "prefixes": [{"address": "fd00::", "length": 64}],
+                "routes": [],
             }
         )
 
@@ -145,7 +146,8 @@ def test_process_packet_info_non_ula_prefix_ignored(mock_logger):
         configurator.process_packet_info(
             {
                 "src_ip": "fe80::1",
-                "prefix": {"address": "2001:db8::", "length": 64},
+                "prefixes": [{"address": "2001:db8::", "length": 64}],
+                "routes": [],
             }
         )
 
@@ -159,10 +161,73 @@ def test_process_packet_info_ula_route(mock_logger):
         configurator.process_packet_info(
             {
                 "src_ip": "fe80::1",
-                "route": {"address": "fd2b:7eb9:619c::", "length": 48},
+                "prefixes": [],
+                "routes": [{"address": "fd2b:7eb9:619c::", "length": 48}],
             }
         )
 
     mock_configure.assert_called_once_with(
         "fd2b:7eb9:619c::", 48, router="fe80::1", is_prefix=False
     )
+
+
+def test_configure_warns_when_router_changes_for_known_prefix(mock_logger):
+    """If the same prefix is later advertised by a different router, log it -
+    the OS route gets silently replaced, so the operator should know."""
+    configurator = RouteConfigurator(mock_logger, interface="eth0")
+
+    with patch.object(configurator.executor, "execute", return_value=True):
+        configurator.configure("fd00::", 64, router="fe80::1")
+        configurator.configure("fd00::", 64, router="fe80::2")  # different router!
+
+    # Find the warning message about the router change.
+    warning_calls = [
+        call for call in mock_logger.error.call_args_list if "now advertised by" in call.args[0]
+    ]
+    assert len(warning_calls) == 1
+    msg = warning_calls[0].args[0]
+    assert "fe80::2" in msg
+    assert "fe80::1" in msg
+
+
+def test_configure_does_not_warn_for_same_router(mock_logger):
+    """No warning when the same prefix re-appears via the same router."""
+    configurator = RouteConfigurator(mock_logger, interface="eth0")
+
+    with patch.object(configurator.executor, "execute", return_value=True):
+        configurator.configure("fd00::", 64, router="fe80::1")
+        # Reset seen_routes so configure() actually runs the second time -
+        # we're testing the router-change check, not the dedup path.
+        configurator.seen_routes.clear()
+        configurator.configure("fd00::", 64, router="fe80::1")
+
+    warning_calls = [
+        call for call in mock_logger.error.call_args_list if "now advertised by" in call.args[0]
+    ]
+    assert warning_calls == []
+
+
+def test_process_packet_info_multiple_prefixes(mock_logger):
+    """Multi-prefix RA: every prefix in the list gets configured."""
+    configurator = RouteConfigurator(mock_logger, interface="eth0")
+
+    with patch.object(configurator, "configure") as mock_configure:
+        configurator.process_packet_info(
+            {
+                "src_ip": "fe80::1",
+                "prefixes": [
+                    {"address": "fd00::", "length": 64},
+                    {"address": "fd11::", "length": 64},
+                    {"address": "2001:db8::", "length": 64},  # non-ULA, ignored
+                ],
+                "routes": [
+                    {"address": "fd22::", "length": 48},
+                    {"address": "fd33::", "length": 48},
+                ],
+            }
+        )
+
+    # 2 ULA prefixes + 2 ULA routes; non-ULA prefix is filtered out.
+    assert mock_configure.call_count == 4
+    configured = {call.args[0] for call in mock_configure.call_args_list}
+    assert configured == {"fd00::", "fd11::", "fd22::", "fd33::"}

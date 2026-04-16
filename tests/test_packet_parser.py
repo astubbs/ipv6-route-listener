@@ -40,9 +40,9 @@ def test_parse_ra_with_all_options(packet_parser):
     # Verify the parsed information
     assert packet_info["src_ip"] == "fe80::92ea:32ff:fea1:fac"
 
-    # Verify prefix information
-    assert "prefix" in packet_info
-    prefix_info = packet_info["prefix"]
+    # Verify prefix information (prefixes is always a list)
+    assert len(packet_info["prefixes"]) == 1
+    prefix_info = packet_info["prefixes"][0]
     assert prefix_info["address"] == "fd82:cd32:5ad7:ff4a::"
     assert prefix_info["length"] == 64
     assert prefix_info["on_link"] is True
@@ -50,9 +50,9 @@ def test_parse_ra_with_all_options(packet_parser):
     assert prefix_info["valid_time"] == 1800
     assert prefix_info["pref_time"] == 1800
 
-    # Verify route information
-    assert "route" in packet_info
-    route_info = packet_info["route"]
+    # Verify route information (routes is always a list)
+    assert len(packet_info["routes"]) == 1
+    route_info = packet_info["routes"][0]
     assert route_info["address"] == "fd4e:a053:febd::"
     assert route_info["length"] == 64
     assert route_info["lifetime"] == 1800
@@ -94,7 +94,7 @@ def test_parse_ra_with_missing_options(packet_parser):
     # Parse the packet
     packet_info = packet_parser.parse(ra_packet)
 
-    # Verify only source IP is present
+    # Source IP present, prefixes/routes are empty lists.
     assert packet_info["src_ip"] == "fe80::92ea:32ff:fea1:fac"
-    assert "prefix" not in packet_info
-    assert "route" not in packet_info
+    assert packet_info["prefixes"] == []
+    assert packet_info["routes"] == []
