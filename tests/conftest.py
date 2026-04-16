@@ -14,9 +14,10 @@ def test_logger():
     logger.setLevel(logging.DEBUG)
     return logger
 
+
 @pytest.fixture(autouse=True)
 def disable_logging():
     """Disable logging for all tests by default."""
     logging.disable(logging.CRITICAL)
     yield
-    logging.disable(logging.NOTSET) 
+    logging.disable(logging.NOTSET)

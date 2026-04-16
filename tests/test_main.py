@@ -63,13 +63,13 @@ def test_verbose_flag():
 
 def test_main_creates_handler_and_starts():
     """Test that main() wires up components and calls handler.start()."""
-    with patch("route_listener.main.argparse") as mock_argparse, \
-         patch("route_listener.main.Logger"), \
-         patch("route_listener.main.RouteConfigurator"), \
-         patch("route_listener.main.ScapyPacketHandler") as mock_handler_cls, \
-         patch("route_listener.main.get_if_list", return_value=["lo0", "eth0"]), \
-         patch("route_listener.main.conf") as mock_conf:
-
+    with patch("route_listener.main.argparse") as mock_argparse, patch(
+        "route_listener.main.Logger"
+    ), patch("route_listener.main.RouteConfigurator"), patch(
+        "route_listener.main.ScapyPacketHandler"
+    ) as mock_handler_cls, patch(
+        "route_listener.main.get_if_list", return_value=["lo0", "eth0"]
+    ), patch("route_listener.main.conf") as mock_conf:
         mock_args = MagicMock()
         mock_args.interface = "eth0"
         mock_args.debug = False
@@ -79,6 +79,7 @@ def test_main_creates_handler_and_starts():
         mock_conf.version = "2.5.0"
 
         from route_listener.main import main
+
         result = main()
 
         assert result == 0

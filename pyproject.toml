@@ -41,11 +41,17 @@ route-listen = "route_listener.main:main"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
 select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
 ignore = []
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+# Tests don't need to satisfy magic-value or line-length rules: assertions
+# against literal numeric values (e.g. assert prefix_len == 64) are the whole
+# point of unit tests.
+"tests/*" = ["PLR2004", "E501"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -60,6 +66,20 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
+
+# Test files don't require strict typing - they're full of mocks where
+# annotating call_args[0][0] etc. is more noise than value. Pytest catches
+# real bugs through assertions, not types.
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+# scapy ships no type stubs and is dynamically generated - skip following
+# its imports so we don't get attr-defined errors on every scapy.all import.
+[[tool.mypy.overrides]]
+module = "scapy.*"
+ignore_missing_imports = true
+follow_imports = "skip"
 
 [tool.radon]
 min = "C"
