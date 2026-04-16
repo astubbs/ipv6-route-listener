@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Operator warning when the same prefix is later advertised by a different router. The OS route is silently replaced by `ip route add`; the warning surfaces failover or misconfiguration.
 - `CLEANUP_PREFIX_LENGTHS` env var on `bin/configure-ipv6-route.sh` to override the default `"64 48 32 16"` set of prefix lengths cleaned up before installing a new route.
 - MIT `LICENSE`. The project was previously unlicensed, which legally blocked adoption.
+- Release pipeline: pushing a `vX.Y.Z` tag now publishes the Python package to PyPI (via OIDC trusted publishing) and a multi-arch Docker image (amd64 + arm64) to both GHCR and Docker Hub.
 
 ### Fixed
 - `--enable-rs` no longer crashes with `AttributeError` (`RouterSolicitor.send_solicitation()` was called as `.send()`).

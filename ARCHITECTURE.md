@@ -73,14 +73,15 @@ ip -6 route add <prefix>/<len> via <router> dev <iface> [onlink]
 
 ## CI workflow set
 
-Three workflows in `.github/workflows/`:
+Workflows in `.github/workflows/`:
 
 - `verify.yml` — format / import sort / mypy / pytest / lint. Runs on push to main and on every PR. The `make verify-check` target mirrors this exactly.
 - `pr-quality.yml` — duplicate-detection (PMD CPD + jscpd), file-similarity, dependency review. PR-only. Tight thresholds calibrated to the current zero-clone baseline (1% absolute, 0% regression).
 - `claude-code-review.yml` — auto Claude Code review on PR open/sync.
 - `claude.yml` — interactive `@claude` mentions on issues and PR comments.
+- `release.yml` — triggered by pushing a `vX.Y.Z` tag. Verifies the tag matches `pyproject.toml` version, builds + publishes the Python package to PyPI via OIDC trusted publishing, and builds + publishes a multi-arch Docker image to GHCR and Docker Hub.
 
-The Claude workflows require a `CLAUDE_CODE_OAUTH_TOKEN` repo secret; without it they fail at the action invocation.
+The Claude workflows require a `CLAUDE_CODE_OAUTH_TOKEN` repo secret; without it they fail at the action invocation. The release workflow requires one-time setup on PyPI (trusted publishing) and Docker Hub (`DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` secrets) — see the workflow file's header comment for details.
 
 ## Extension points
 

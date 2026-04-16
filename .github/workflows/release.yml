@@ -1,0 +1,111 @@
+name: Release
+
+# Triggered by pushing a version tag (e.g. v0.1.0). Builds and publishes:
+#   - Python wheel + sdist to PyPI (via OIDC trusted publishing, no token needed)
+#   - Multi-arch Docker image (amd64 + arm64) to GHCR and Docker Hub
+#
+# Manual prereqs (one-time setup):
+#   - PyPI: register the project at pypi.org/manage/account/publishing/, link to
+#     repo astubbs/ipv6-route-listener, workflow release.yml, environment "pypi".
+#   - Docker Hub: create the repo astubbs/ipv6-route-listener; set repo secrets
+#     DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (write-scoped access token).
+#   - GHCR: nothing to set up - uses the built-in GITHUB_TOKEN.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish-pypi:
+    name: Build wheel + publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      # Match this name to the environment configured in PyPI's trusted
+      # publishing settings.
+      name: pypi
+      url: https://pypi.org/p/route-listener
+    permissions:
+      # Required for OIDC trusted publishing
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Verify tag matches pyproject.toml version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PYPROJECT_VERSION=$(poetry version -s)
+          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME (version $TAG_VERSION) does not match pyproject.toml version $PYPROJECT_VERSION"
+            exit 1
+          fi
+
+      - name: Build distributions
+        run: poetry build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  build-and-publish-docker:
+    name: Build and publish Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # Required to push to GHCR
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # Publish to both registries with identical tag sets.
+          images: |
+            ghcr.io/${{ github.repository }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/ipv6-route-listener
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

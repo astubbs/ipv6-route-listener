@@ -23,7 +23,43 @@ This project provides a workaround by:
 - Extracting ULA prefixes and routes
 - Manually configuring these routes in the kernel using the `ip` command
 
-## 🚀 Quick Start (with Docker)
+## 🚀 Install
+
+### Pre-built Docker image (Recommended)
+
+Pull the latest published image from either registry:
+
+```bash
+# GitHub Container Registry
+docker pull ghcr.io/astubbs/ipv6-route-listener:latest
+
+# Docker Hub
+docker pull astubbs/ipv6-route-listener:latest
+
+# Pin to a specific version
+docker pull ghcr.io/astubbs/ipv6-route-listener:0.1.0
+```
+
+Run with the required capabilities and your interface:
+
+```bash
+docker run --rm \
+  --network=host \
+  --cap-add=NET_ADMIN --cap-add=NET_RAW \
+  -e INTERFACE=eth0 \
+  ghcr.io/astubbs/ipv6-route-listener:latest
+```
+
+### Pip install
+
+```bash
+pip install route-listener
+sudo route-listen -i eth0
+```
+
+`sudo` is required because raw socket capture needs `CAP_NET_RAW` and route configuration needs `CAP_NET_ADMIN`. The included `bin/configure-ipv6-route.sh` script must be reachable from the install location.
+
+### Build from source (with Docker)
 
 1. **Clone this repo:**
 
