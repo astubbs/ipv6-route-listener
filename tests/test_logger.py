@@ -20,26 +20,25 @@ def enable_logging():
 def logger(tmp_path):
     """Create a Logger with a temp log file."""
     log_file = str(tmp_path / "test.log")
-    return Logger(verbose=False, log_file=log_file)
+    return Logger(log_file=log_file)
 
 
-def test_debug_respects_log_level_not_verbose_flag(logger):
-    """debug() should log when level is DEBUG, regardless of verbose flag."""
+def test_debug_respects_log_level(logger):
+    """debug() should delegate to the underlying logger regardless of level."""
     logger.setLevel(logging.DEBUG)
-    assert logger.verbose is False
 
     with patch.object(logger._logger, "debug") as mock_debug:
         logger.debug("test message")
         mock_debug.assert_called_once_with("test message")
 
 
-def test_debug_suppressed_at_info_level(logger):
-    """debug() should not emit when level is INFO."""
+def test_debug_delegates_even_at_info_level(logger):
+    """debug() always delegates; the underlying handler decides whether to emit."""
     logger.setLevel(logging.INFO)
 
     with patch.object(logger._logger, "debug") as mock_debug:
         logger.debug("test message")
-        mock_debug.assert_called_once_with("test message")  # still called, but handler filters
+        mock_debug.assert_called_once_with("test message")
 
 
 def test_info_delegates(logger):
@@ -61,35 +60,6 @@ def test_banner_logs_at_info(logger):
     with patch.object(logger._logger, "info") as mock_info:
         logger.banner("== Banner ==")
         mock_info.assert_called_once_with("== Banner ==")
-
-
-def test_packet_info_format(logger):
-    """packet_info() formats RA info correctly."""
-    with patch.object(logger._logger, "debug") as mock_debug:
-        logger.packet_info("fe80::1", "fd00::", 64, router="fe80::2")
-        mock_debug.assert_called_once()
-        msg = mock_debug.call_args[0][0]
-        assert "fe80::1" in msg
-        assert "fd00::/64" in msg
-        assert "via fe80::2" in msg
-
-
-def test_packet_info_no_router_suffix_when_same_as_src(logger):
-    """packet_info() omits 'via' when router equals src_addr."""
-    with patch.object(logger._logger, "debug") as mock_debug:
-        logger.packet_info("fe80::1", "fd00::", 64, router="fe80::1")
-        msg = mock_debug.call_args[0][0]
-        assert "via" not in msg
-
-
-def test_ignored_route_format(logger):
-    """ignored_route() formats correctly."""
-    with patch.object(logger._logger, "debug") as mock_debug:
-        logger.ignored_route("fd00::", 64, "not ULA")
-        mock_debug.assert_called_once()
-        msg = mock_debug.call_args[0][0]
-        assert "fd00::/64" in msg
-        assert "not ULA" in msg
 
 
 def test_is_enabled_for(logger):

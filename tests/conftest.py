@@ -81,9 +81,7 @@ def disable_logging():
 @pytest.fixture
 def mock_logger():
     """Mock Logger - shared between unit and integration test files."""
-    logger = MagicMock(spec=Logger)
-    logger.verbose = True
-    return logger
+    return MagicMock(spec=Logger)
 
 
 @pytest.fixture

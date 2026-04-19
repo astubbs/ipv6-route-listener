@@ -7,7 +7,7 @@
 
 **Get Matter/Thread devices working with Home Assistant on Synology NAS** (and other Linux systems missing `CONFIG_IPV6_ROUTE_INFO` in their kernel).
 
-This project listens for IPv6 Router Advertisements (RAs) from Thread Border Routers and automatically configures ULA prefixes and routes on the host system. It's a userspace workaround for Linux kernels — most notably **Synology DSM** — that don't process IPv6 Route Information Options needed by Matter/Thread subnets.
+This project listens for IPv6 Router Advertisements (RAs) from Thread Border Routers and automatically configures ULA prefixes and routes on the host system. It's a userspace workaround for Linux kernels - most notably **Synology DSM** - that don't process IPv6 Route Information Options needed by Matter/Thread subnets.
 
 ## 🎯 Purpose
 
@@ -94,7 +94,7 @@ sudo route-listen -i eth0
     ```
 
     Other environment variables:
-    - `CLEANUP_PREFIX_LENGTHS` — space-separated list of prefix lengths the route-configuration script removes before adding a new route. Defaults to `"64 48 32 16"`. Set this if your network uses different prefix sizes:
+    - `CLEANUP_PREFIX_LENGTHS` - space-separated list of prefix lengths the route-configuration script removes before adding a new route. Defaults to `"64 48 32 16"`. Set this if your network uses different prefix sizes:
       ```bash
       docker run -e CLEANUP_PREFIX_LENGTHS="64 56 48" ...
       ```

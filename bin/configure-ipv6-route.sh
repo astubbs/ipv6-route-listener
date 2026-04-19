@@ -89,6 +89,7 @@ done
 CLEANUP_PREFIX_LENGTHS="${CLEANUP_PREFIX_LENGTHS:-64 48 32 16}"
 echo "   Checking for prefix length routes (lengths: $CLEANUP_PREFIX_LENGTHS)..."
 for LENGTH in $CLEANUP_PREFIX_LENGTHS; do
+    validate_prefix_len "$LENGTH"
     echo "   🗑️  Trying /$LENGTH routes..."
     ip -6 route del "$BASE_PREFIX/$LENGTH" 2>/dev/null || true
     ip -6 route del "$BASE_PREFIX/$LENGTH" via "$ROUTER" dev "$IFACE" 2>/dev/null || true

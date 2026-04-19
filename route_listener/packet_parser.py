@@ -116,7 +116,7 @@ class PacketParser:
             prefix_len = opt.prefixlen
             if self.logger:
                 self.logger.debug(f"🔍 Found on-link prefix: {prefix_str}/{prefix_len}")
-                self.logger.info(
+                self.logger.debug(
                     f"📡 On-link prefix: {prefix_str}/{prefix_len} (directly connected)"
                 )
             packet_info["prefixes"].append(
@@ -142,7 +142,7 @@ class PacketParser:
             prefix_len = opt.plen  # Route Info uses 'plen' instead of 'prefixlen'
             if self.logger:
                 self.logger.debug(f"🔍 Found off-link route: {prefix_str}/{prefix_len}")
-                self.logger.info(
+                self.logger.debug(
                     f"🛣️  Off-link route: {prefix_str}/{prefix_len} (via {packet_info['src_ip']})"
                 )
             packet_info["routes"].append(

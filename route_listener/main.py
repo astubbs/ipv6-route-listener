@@ -27,11 +27,10 @@ def main() -> int:
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--enable-rs", action="store_true", help="Enable Router Solicitation")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging output")
     args = parser.parse_args()
 
     # Create logger
-    logger = Logger(verbose=args.verbose)
+    logger = Logger()
 
     # Enable debug logging if requested
     if args.debug:
@@ -58,7 +57,6 @@ def main() -> int:
     )
     logger.info(f"  Scapy version: {conf.version}")
     logger.info(f"  Debug logging: {'Yes' if args.debug else 'No'}")
-    logger.info(f"  Verbose mode: {'Yes' if args.verbose else 'No'}")
     logger.info(f"  Available interfaces: {', '.join(get_if_list())}")
     logger.info(f"  Router Solicitation: {'Enabled' if args.enable_rs else 'Disabled'}")
 

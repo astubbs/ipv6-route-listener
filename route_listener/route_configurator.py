@@ -96,12 +96,6 @@ class RouteExecutor:
                 self.logger.debug(f"Return code: {result.returncode}")
                 return False
 
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"❌ Script execution failed: {e!s}")
-            self.logger.debug(f"Command output: {e.stdout}")
-            self.logger.debug(f"Command error: {e.stderr}")
-            self.logger.debug(f"Return code: {e.returncode}")
-            return False
         except Exception as e:
             self.logger.error(f"❌ Unexpected error during route configuration: {e!s}")
             self.logger.debug(f"Error details: {e!s}")
@@ -192,22 +186,6 @@ class RouteConfigurator:
             if router:
                 self.prefix_to_router[base_prefix] = router
 
-    def get_route_key(self, prefix: str, router: str | None = None) -> str:
-        """Generate a unique key for a route.
-
-        Args:
-            prefix: IPv6 prefix
-            router: Router address (optional)
-
-        Returns:
-            A unique string key for the route
-        """
-        # Remove any existing prefix length notation
-        base_prefix = prefix.split("/")[0]
-        if router:
-            return f"{base_prefix}|{router}|{self.interface}"
-        return f"{base_prefix}|{self.interface}"
-
     def process_packet_info(self, packet_info: dict) -> None:
         """Process packet information from a Router Advertisement.
 
@@ -220,6 +198,9 @@ class RouteConfigurator:
         Iterates both lists so all prefixes and routes in a single RA get
         configured (a Border Router can advertise several at once).
         """
+        if not packet_info:
+            return
+
         src_ip = packet_info["src_ip"]
 
         for prefix_info in packet_info.get("prefixes", []):

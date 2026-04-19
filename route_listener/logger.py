@@ -10,14 +10,12 @@ from .config import LOG_BACKUP_COUNT, LOG_FILE_MAX_BYTES
 class Logger:
     """Custom logger for the route listener application."""
 
-    def __init__(self, verbose: bool = False, log_file: str = "route_listener.log") -> None:
+    def __init__(self, log_file: str = "route_listener.log") -> None:
         """Initialize the logger.
 
         Args:
-            verbose: Whether to enable verbose logging output
             log_file: Path to the log file (default: route_listener.log)
         """
-        self.verbose = verbose
         self.log_file = log_file
         self._setup_logging()
 
@@ -103,27 +101,3 @@ class Logger:
     def banner(self, message: str) -> None:
         """Log a banner message."""
         self._logger.info(message)
-
-    def packet_info(
-        self, src_addr: str, prefix: str, prefix_len: int, router: str | None = None
-    ) -> None:
-        """Log basic packet information in a single line.
-
-        Args:
-            src_addr: Source address of the Router Advertisement
-            prefix: The prefix or route
-            prefix_len: The prefix length
-            router: The router address (if different from source)
-        """
-        router_str = f" via {router}" if router and router != src_addr else ""
-        self._logger.debug(f"🔔 RA from {src_addr}: {prefix}/{prefix_len}{router_str}")
-
-    def ignored_route(self, prefix: str, prefix_len: int, reason: str) -> None:
-        """Log ignored route information in a single line.
-
-        Args:
-            prefix: The prefix that was ignored
-            prefix_len: The prefix length
-            reason: The reason for ignoring the route
-        """
-        self._logger.debug(f"⏭️  Ignored {prefix}/{prefix_len}: {reason}")

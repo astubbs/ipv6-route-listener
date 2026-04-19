@@ -1,16 +1,8 @@
 """Tests for RouterSolicitor."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
-
-from route_listener.logger import Logger
 from route_listener.router_solicitor import RouterSolicitor
-
-
-@pytest.fixture
-def mock_logger():
-    return MagicMock(spec=Logger)
 
 
 def test_send_creates_and_sends_rs(mock_logger):

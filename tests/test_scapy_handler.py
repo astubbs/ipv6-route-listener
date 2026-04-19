@@ -5,19 +5,12 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from scapy.all import IPv6
 
-from route_listener.logger import Logger
 from route_listener.packet_parser import PacketParser
 from route_listener.route_configurator import RouteConfigurator
 from route_listener.router_solicitor import RouterSolicitor
 from route_listener.scapy_handler import ScapyPacketHandler
 
-
-@pytest.fixture
-def mock_logger():
-    """Create a mock logger for testing."""
-    logger = MagicMock(spec=Logger)
-    logger.verbose = True
-    return logger
+# mock_logger is provided by conftest.py
 
 
 @pytest.fixture

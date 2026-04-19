@@ -4,7 +4,7 @@ Developer-facing implementation doc. Complements the user-facing `README.md`.
 
 ## Problem statement
 
-Linux kernels need `CONFIG_IPV6_ROUTE_INFO` to autoconfigure routes from ICMPv6 Route Information Options (RFC 4191). Synology DSM ships kernels without this option, which means Thread Border Routers can advertise ULA routes to Matter devices but the host never installs them — Home Assistant on Synology can't reach the devices.
+Linux kernels need `CONFIG_IPV6_ROUTE_INFO` to autoconfigure routes from ICMPv6 Route Information Options (RFC 4191). Synology DSM ships kernels without this option, which means Thread Border Routers can advertise ULA routes to Matter devices but the host never installs them - Home Assistant on Synology can't reach the devices.
 
 This project is a userspace workaround: sniff RAs with Scapy, extract the ULA prefixes/routes, and call `ip -6 route` directly.
 
@@ -15,10 +15,10 @@ route_listener/
 ├── main.py              CLI entry point + argparse + wiring
 ├── config.py            DEFAULT_INTERFACE, log file constants
 ├── logger.py            Logger wrapper (drop-in for stdlib logging.Logger)
-├── packet_parser.py     PacketParser — Scapy packet -> dict
+├── packet_parser.py     PacketParser - Scapy packet -> dict
 ├── route_configurator.py RouteConfigurator + RouteExecutor + Route dataclass
 ├── router_solicitor.py  Sends ICMPv6 Router Solicitation (when --enable-rs)
-└── scapy_handler.py     ScapyPacketHandler — sniff loop, dispatches to parser/configurator
+└── scapy_handler.py     ScapyPacketHandler - sniff loop, dispatches to parser/configurator
 
 bin/
 ├── start.sh                  Docker entrypoint, parses -i/--interface
@@ -65,7 +65,7 @@ ip -6 route add <prefix>/<len> via <router> dev <iface> [onlink]
 
 **Lists for prefixes/routes (not single keys).** A real Border Router can advertise multiple `PrefixInfo` and `RouteInfo` options in one RA. The earlier single-key shape silently dropped all but the last; the parser now returns lists and the configurator iterates them.
 
-**Per-router prefix tracking.** `RouteConfigurator.prefix_to_router` maps a base prefix to the most recent advertising router. When a new RA from a different router arrives for a known prefix, the existing OS route is replaced (silently) — the configurator logs an error so operators can see failover or misconfiguration events.
+**Per-router prefix tracking.** `RouteConfigurator.prefix_to_router` maps a base prefix to the most recent advertising router. When a new RA from a different router arrives for a known prefix, the existing OS route is replaced (silently) - the configurator logs an error so operators can see failover or misconfiguration events.
 
 **Logger as drop-in for stdlib logging.Logger.** Method names `setLevel` and `isEnabledFor` are intentional camelCase (with `# noqa: N802`) so callers can pass the wrapper anywhere a stdlib `Logger` is expected.
 
@@ -75,17 +75,17 @@ ip -6 route add <prefix>/<len> via <router> dev <iface> [onlink]
 
 Workflows in `.github/workflows/`:
 
-- `verify.yml` — format / import sort / mypy / pytest / lint. Runs on push to main and on every PR. The `make verify-check` target mirrors this exactly.
-- `pr-quality.yml` — duplicate-detection (PMD CPD + jscpd), file-similarity, dependency review. PR-only. Tight thresholds calibrated to the current zero-clone baseline (1% absolute, 0% regression).
-- `claude-code-review.yml` — auto Claude Code review on PR open/sync.
-- `claude.yml` — interactive `@claude` mentions on issues and PR comments.
-- `release.yml` — triggered by pushing a `vX.Y.Z` tag. Verifies the tag matches `pyproject.toml` version, builds + publishes the Python package to PyPI via OIDC trusted publishing, and builds + publishes a multi-arch Docker image to GHCR and Docker Hub.
+- `verify.yml` - format / import sort / mypy / pytest / lint. Runs on push to main and on every PR. The `make verify-check` target mirrors this exactly.
+- `pr-quality.yml` - duplicate-detection (PMD CPD + jscpd), file-similarity, dependency review. PR-only. Tight thresholds calibrated to the current zero-clone baseline (1% absolute, 0% regression).
+- `claude-code-review.yml` - auto Claude Code review on PR open/sync.
+- `claude.yml` - interactive `@claude` mentions on issues and PR comments.
+- `release.yml` - triggered by pushing a `vX.Y.Z` tag. Verifies the tag matches `pyproject.toml` version, builds + publishes the Python package to PyPI via OIDC trusted publishing, and builds + publishes a multi-arch Docker image to GHCR and Docker Hub.
 
-The Claude workflows require a `CLAUDE_CODE_OAUTH_TOKEN` repo secret; without it they fail at the action invocation. The release workflow requires one-time setup on PyPI (trusted publishing) and Docker Hub (`DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` secrets) — see the workflow file's header comment for details.
+The Claude workflows require a `CLAUDE_CODE_OAUTH_TOKEN` repo secret; without it they fail at the action invocation. The release workflow requires one-time setup on PyPI (trusted publishing) and Docker Hub (`DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` secrets) - see the workflow file's header comment for details.
 
 ## Extension points
 
-- **New RA option types** — add an `isinstance(opt, ...)` branch in `PacketParser._process_option` and an entry in the `packet_info` dict shape, plus iteration in `RouteConfigurator.process_packet_info`.
-- **Different prefix filter** — `RouteConfigurator.process_packet_info` does the `startswith("fd")` check inline; centralize in a method if you need more complex rules.
-- **Different routing backend** — replace `RouteExecutor` (which calls the shell script) with another implementation. The script is the only thing that touches the kernel routing table.
-- **CLI flags** — add to `argparse` in `main.py`, then thread through `ScapyPacketHandler` constructor.
+- **New RA option types** - add an `isinstance(opt, ...)` branch in `PacketParser._process_option` and an entry in the `packet_info` dict shape, plus iteration in `RouteConfigurator.process_packet_info`.
+- **Different prefix filter** - `RouteConfigurator.process_packet_info` does the `startswith("fd")` check inline; centralize in a method if you need more complex rules.
+- **Different routing backend** - replace `RouteExecutor` (which calls the shell script) with another implementation. The script is the only thing that touches the kernel routing table.
+- **CLI flags** - add to `argparse` in `main.py`, then thread through `ScapyPacketHandler` constructor.

@@ -2,17 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from route_listener.logger import Logger
 from route_listener.route_configurator import Route, RouteConfigurator, RouteExecutor
-
-
-@pytest.fixture
-def mock_logger():
-    logger = MagicMock(spec=Logger)
-    return logger
-
 
 # --- Route dataclass tests ---
 
@@ -188,6 +178,9 @@ def test_configure_warns_when_router_changes_for_known_prefix(mock_logger):
     msg = warning_calls[0].args[0]
     assert "fe80::2" in msg
     assert "fe80::1" in msg
+
+    # Verify prefix_to_router was updated to the new router.
+    assert configurator.prefix_to_router.get("fd00::") == "fe80::2"
 
 
 def test_configure_does_not_warn_for_same_router(mock_logger):
