@@ -14,4 +14,5 @@ services:
       - .:/app     # Mount source code for development and hot-reloading
     environment:
       - PYTHONUNBUFFERED=1  # Ensure Python output is not buffered for real-time logs
-    command: /bin/sh bin/start.sh -i ovs_eth2 # -i $INTERFACE $DEBUG $VERBOSE
+      - INTERFACE=${INTERFACE:-ovs_eth2}
+    command: /bin/sh bin/start.sh -i ${INTERFACE:-ovs_eth2}
